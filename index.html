@@ -1185,8 +1185,12 @@ function renderCaja(){
   const filtroTipo  = document.getElementById('caja-filtro-tipo').value;
   const buscar      = (document.getElementById('caja-buscar').value||'').toLowerCase();
 
+  // El cajero solo ve movimientos del día de hoy; el admin ve todo el histórico
+  const hoyLocal = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD en hora local
+  const cajaBase = currentRole === 'cajero' ? caja.filter(m => m.fecha === hoyLocal) : caja;
+
   // Ordenar por fecha desc para mostrar, pero calcular saldo en orden asc
-  const ordenAsc = [...caja].sort((a,b)=>a.fecha.localeCompare(b.fecha)||(0));
+  const ordenAsc = [...cajaBase].sort((a,b)=>a.fecha.localeCompare(b.fecha)||(0));
 
   // Calcular saldos acumulados por medio
   let saldoEfectivo = 0, saldoBanco = 0;
@@ -1197,10 +1201,10 @@ function renderCaja(){
   });
 
   // Actualizar tarjetas
-  const totalIngEf  = caja.filter(m=>m.tipo==='ingreso'&&m.medio==='Efectivo').reduce((a,m)=>a+m.monto,0);
-  const totalEgrEf  = caja.filter(m=>m.tipo==='egreso' &&m.medio==='Efectivo').reduce((a,m)=>a+m.monto,0);
-  const totalIngBk  = caja.filter(m=>m.tipo==='ingreso'&&m.medio==='Banco').reduce((a,m)=>a+m.monto,0);
-  const totalEgrBk  = caja.filter(m=>m.tipo==='egreso' &&m.medio==='Banco').reduce((a,m)=>a+m.monto,0);
+  const totalIngEf  = cajaBase.filter(m=>m.tipo==='ingreso'&&m.medio==='Efectivo').reduce((a,m)=>a+m.monto,0);
+  const totalEgrEf  = cajaBase.filter(m=>m.tipo==='egreso' &&m.medio==='Efectivo').reduce((a,m)=>a+m.monto,0);
+  const totalIngBk  = cajaBase.filter(m=>m.tipo==='ingreso'&&m.medio==='Banco').reduce((a,m)=>a+m.monto,0);
+  const totalEgrBk  = cajaBase.filter(m=>m.tipo==='egreso' &&m.medio==='Banco').reduce((a,m)=>a+m.monto,0);
   const saldoEf     = totalIngEf - totalEgrEf;
   const saldoBk     = totalIngBk - totalEgrBk;
   const totalIng    = totalIngEf + totalIngBk;
@@ -1209,8 +1213,8 @@ function renderCaja(){
   document.getElementById('caja-saldo-efectivo').textContent = fmt(saldoEf);
   document.getElementById('caja-saldo-banco').textContent    = fmt(saldoBk);
   document.getElementById('caja-saldo-total').textContent    = fmt(saldoEf + saldoBk);
-  document.getElementById('caja-mov-efectivo').textContent   = caja.filter(m=>m.medio==='Efectivo').length + ' movimientos';
-  document.getElementById('caja-mov-banco').textContent      = caja.filter(m=>m.medio==='Banco').length + ' movimientos';
+  document.getElementById('caja-mov-efectivo').textContent   = cajaBase.filter(m=>m.medio==='Efectivo').length + ' movimientos';
+  document.getElementById('caja-mov-banco').textContent      = cajaBase.filter(m=>m.medio==='Banco').length + ' movimientos';
   document.getElementById('caja-resumen-tipo').textContent   = `Ingresos: ${fmt(totalIng)} · Egresos: ${fmt(totalEgr)}`;
 
   // Colores tarjetas según saldo
@@ -3920,7 +3924,7 @@ function applyRoleRestrictions(role) {
 }
 
 function imprimirTirillaCuadre(){
-  const hoy = new Date().toISOString().slice(0,10);
+  const hoy = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD en hora local
   const movsHoy = caja.filter(m=>m.fecha===hoy);
 
   if(movsHoy.length===0){ toast('No hay movimientos registrados hoy'); return; }
