@@ -1,11 +1,3 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Femme Store — InventaPro</title>
-</head>
-<body>
 
 <h2 class="sr-only">Femme Store — Powered by InventaPro Soluciones Integrales</h2>
 <style>
@@ -701,8 +693,8 @@ tr:hover td{background:rgba(255,255,255,.025)}
     </div>
   </div>
 
-  <!-- Barra de acciones -->
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+  <!-- Barra de acciones (solo admin) -->
+  <div id="caja-admin-controls" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
     <button class="btn primary" onclick="openCajaModal()">+ Registrar movimiento</button>
     <select id="caja-filtro-medio" onchange="renderCaja()" style="font-size:13px;padding:7px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary)">
       <option value="">Todos los medios</option>
@@ -717,8 +709,8 @@ tr:hover td{background:rgba(255,255,255,.025)}
     <input type="text" id="caja-buscar" placeholder="Buscar descripción..." oninput="renderCaja()" style="flex:1;min-width:140px;font-size:13px">
   </div>
 
-  <!-- Tabla de movimientos -->
-  <div class="card" style="padding:0;overflow:hidden">
+  <!-- Tabla de movimientos (solo admin) -->
+  <div id="caja-admin-tabla" class="card" style="padding:0;overflow:hidden">
     <table>
       <thead>
         <tr>
@@ -3904,6 +3896,10 @@ function applyRoleRestrictions(role) {
     if (volverBtn) volverBtn.style.display = 'inline-block';
     const imprimirCuadreBtn = document.getElementById('btn-imprimir-cuadre-cajero');
     if (imprimirCuadreBtn) imprimirCuadreBtn.style.display = 'inline-block';
+    const cajaAdminControls = document.getElementById('caja-admin-controls');
+    if (cajaAdminControls) cajaAdminControls.style.display = 'none';
+    const cajaAdminTabla = document.getElementById('caja-admin-tabla');
+    if (cajaAdminTabla) cajaAdminTabla.style.display = 'none';
     // Mostrar pantalla fija de venta del cajero
     document.getElementById('cajero-screen').style.display = 'block';
     renderCartCajero();
@@ -3916,6 +3912,10 @@ function applyRoleRestrictions(role) {
     if (cuadreBtn) cuadreBtn.style.display = 'none';
     const pwBtn = document.getElementById('topbar-pw-btn');
     if (pwBtn) pwBtn.style.display = 'inline-block';
+    const cajaAdminControls = document.getElementById('caja-admin-controls');
+    if (cajaAdminControls) cajaAdminControls.style.display = 'flex';
+    const cajaAdminTabla = document.getElementById('caja-admin-tabla');
+    if (cajaAdminTabla) cajaAdminTabla.style.display = 'block';
   }
 }
 
@@ -4349,5 +4349,3 @@ initFirebase().catch(e => console.error('Firebase init error:', e));
     </div>
   </div>
 </div>
-</body>
-</html>
