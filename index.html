@@ -1132,7 +1132,7 @@ function cajaActualizarCategorias(){
 
 function openCajaModal(idx){
   cajaActualizarCategorias();
-  document.getElementById('caja-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('caja-fecha').value = new Date().toLocaleDateString('en-CA');
   document.getElementById('caja-monto').value = '0';
   document.getElementById('caja-desc').value  = '';
   document.getElementById('caja-modal-title').textContent = 'Registrar movimiento';
@@ -1160,7 +1160,7 @@ function guardarMovCaja(){
     categoria: document.getElementById('caja-categoria').value,
     desc:      document.getElementById('caja-desc').value.trim()||'Sin descripción',
     monto,
-    fecha:     document.getElementById('caja-fecha').value || new Date().toISOString().slice(0,10),
+    fecha:     document.getElementById('caja-fecha').value || new Date().toLocaleDateString('en-CA'),
     auto:      false,
   };
   if(window._cajaEditIdx !== null && window._cajaEditIdx !== undefined){
@@ -1619,7 +1619,7 @@ function guardarSeparacion(){
   if(!fecha){ toast('Selecciona una fecha límite'); return; }
   if(abono>total){ toast('El abono no puede superar el total'); return; }
 
-  const hoy = new Date().toISOString().slice(0,10);
+  const hoy = new Date().toLocaleDateString('en-CA');
   const nuevaSep = {
     id: 'SEP'+(Date.now()),
     clienta,
@@ -1690,7 +1690,7 @@ function guardarCuota(){
   const saldo = s.total - s.abonado;
   if(valor > saldo + 1){ toast('El abono supera el saldo pendiente'); return; }
 
-  const hoy = new Date().toISOString().slice(0,10);
+  const hoy = new Date().toLocaleDateString('en-CA');
   separados[idx].abonado += valor;
   separados[idx].cuotas.push({fecha:hoy, valor, metodo});
 
@@ -1714,7 +1714,7 @@ function completarSep(idx){
     : `¿Confirmar entrega a ${s.clienta}?`;
   if(!confirm(msg)) return;
 
-  const hoy = new Date().toISOString().slice(0,10);
+  const hoy = new Date().toLocaleDateString('en-CA');
   separados[idx].estado = 'completado';
 
   // Registrar como venta
@@ -1745,7 +1745,7 @@ function cancelarSep(idx){
     if(pi>=0) products[pi].stock += p.qty;
   });
 
-  const hoy = new Date().toISOString().slice(0,10);
+  const hoy = new Date().toLocaleDateString('en-CA');
   historial.unshift({fecha:hoy, msg:`Separación cancelada: ${s.clienta} — abono de ${fmt(s.abonado)} perdido`, tipo:'nueva'});
   guardarDatos();
   renderSeparados();
@@ -2010,7 +2010,7 @@ function probarNotificacion(){
   const activos = channels.filter(c=>c.on).map(c=>c.label).join(', ');
   if(!activos){ toast('Activa al menos un canal de notificación'); return; }
   toast('Alerta de prueba enviada por: ' + activos);
-  historial.unshift({fecha: new Date().toISOString().slice(0,10), msg:'Alerta de prueba enviada', tipo:'nueva'});
+  historial.unshift({fecha: new Date().toLocaleDateString('en-CA'), msg:'Alerta de prueba enviada', tipo:'nueva'});
   renderHistorial();
 }
 
@@ -2020,7 +2020,7 @@ function simularAlerta(){
   if(idx>=0){ products[idx].stock = 0; }
   renderAlertaEstado();
   actualizarBadge();
-  historial.unshift({fecha: new Date().toISOString().slice(0,10), msg:'Funda Celular: stock llegó a 0 unidades', tipo:'nueva'});
+  historial.unshift({fecha: new Date().toLocaleDateString('en-CA'), msg:'Funda Celular: stock llegó a 0 unidades', tipo:'nueva'});
   renderHistorial();
   toast('Stock simulado — revisa el estado');
 }
@@ -2349,7 +2349,7 @@ function confirmarVentaCarrito(){
   const sumaPagos = pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
   if(Math.abs(total-sumaPagos)>=1){ toast('⚠️ El pago no coincide con el total'); return; }
 
-  const today = new Date().toISOString().slice(0,10);
+  const today = new Date().toLocaleDateString('en-CA');
   const metodosTxt = pagos.map(p=>p.metodo+' '+fmt(p.monto)).join(' + ');
 
   // Descontar stock y registrar cada item como venta
@@ -3041,7 +3041,7 @@ function _buildPDFHTML(titulo, subtitulo, ventasFiltradas, incluirInventario){
 }
 
 function generarPDFDiario(){
-  const hoy = new Date().toISOString().slice(0,10);
+  const hoy = new Date().toLocaleDateString('en-CA');
   const ventasHoy = ventas.filter(v=>v.fecha===hoy);
   if(!ventasHoy.length){ toast('No hay ventas registradas hoy'); return; }
   const html = _buildPDFHTML('Reporte del día', fmtFecha(hoy), ventasHoy, false);
@@ -3455,7 +3455,7 @@ function liqRegistrarVenta(){
   }
 
   // Múltiples prendas → registrar todas directamente
-  const today = new Date().toISOString().slice(0,10);
+  const today = new Date().toLocaleDateString('en-CA');
   const mediosCaja = {'Efectivo':'Efectivo','Transferencia':'Banco','Nequi':'Banco','Daviplata':'Banco','Tarjeta':'Banco'};
   liqItems.forEach(item=>{
     const pi = products.findIndex(p=>p.nombre===item.nombre);
@@ -3505,7 +3505,7 @@ function showInvTab(tab, btn){
 
 function openCompraModal(){
   _compraItems = [];
-  document.getElementById('compra-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('compra-fecha').value = new Date().toLocaleDateString('en-CA');
   document.getElementById('compra-notas').value = '';
   document.getElementById('compra-estado').value = 'pendiente';
   document.getElementById('compra-factura').value = '';
@@ -3563,7 +3563,7 @@ function renderCompraItems(){
 function guardarCompra(){
   if(!_compraItems.length){ toast('Agrega al menos un producto'); return; }
   const prov    = document.getElementById('compra-prov').value || 'Sin proveedor';
-  const fecha   = document.getElementById('compra-fecha').value || new Date().toISOString().slice(0,10);
+  const fecha   = document.getElementById('compra-fecha').value || new Date().toLocaleDateString('en-CA');
   const medio   = document.getElementById('compra-medio').value;
   const notas   = document.getElementById('compra-notas').value.trim();
   const estado  = document.getElementById('compra-estado').value;
@@ -3754,7 +3754,7 @@ function renderCxP(){
 function openPagarCxP(idx){
   _cxpEditIdx = idx;
   const c = compras[idx];
-  document.getElementById('cxp-pago-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('cxp-pago-fecha').value = new Date().toLocaleDateString('en-CA');
   document.getElementById('cxp-pago-medio').value = c.medio || 'Efectivo';
   document.getElementById('cxp-pago-info').innerHTML = `
     <div style="font-weight:700;color:var(--text);margin-bottom:6px">${c.prov}</div>
@@ -4209,7 +4209,7 @@ function confirmarVentaCajero(){
   const sumaPagos = pagosCajero.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
   if(Math.abs(total-sumaPagos)>=1){ toast('⚠️ El pago no coincide con el total'); return; }
 
-  const today = new Date().toISOString().slice(0,10);
+  const today = new Date().toLocaleDateString('en-CA');
   const metodosTxt = pagosCajero.map(p=>p.metodo+' '+fmt(p.monto)).join(' + ');
 
   cartCajero.forEach(item=>{
