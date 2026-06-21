@@ -1187,7 +1187,8 @@ function renderCaja(){
 
   // El cajero solo ve movimientos del día de hoy; el admin ve todo el histórico
   const hoyLocal = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD en hora local
-  const cajaBase = currentRole === 'cajero' ? caja.filter(m => m.fecha === hoyLocal) : caja;
+  const cajaConIdx = caja.map((m,i)=>({...m, _idx:i}));
+  const cajaBase = currentRole === 'cajero' ? cajaConIdx.filter(m => m.fecha === hoyLocal) : cajaConIdx;
 
   // Ordenar por fecha desc para mostrar, pero calcular saldo en orden asc
   const ordenAsc = [...cajaBase].sort((a,b)=>a.fecha.localeCompare(b.fecha)||(0));
@@ -1223,7 +1224,7 @@ function renderCaja(){
   document.getElementById('caja-saldo-total').style.color  = (saldoEf+saldoBk) < 0 ? '#A32D2D' : '#c9a84c';
 
   // Filtrar para tabla
-  let filtrados = caja.map((m,i)=>({...m, _idx:i}));
+  let filtrados = cajaBase;
   if(filtroMedio) filtrados = filtrados.filter(m=>m.medio===filtroMedio);
   if(filtroTipo)  filtrados = filtrados.filter(m=>m.tipo===filtroTipo);
   if(buscar)      filtrados = filtrados.filter(m=>m.desc.toLowerCase().includes(buscar)||m.categoria.toLowerCase().includes(buscar));
@@ -1555,7 +1556,7 @@ function openSepModal(){
   document.getElementById('sep-resumen').style.display='none';
   // Fecha límite: 2 semanas por defecto
   const d = new Date(); d.setDate(d.getDate()+14);
-  document.getElementById('sep-fecha-limite').value = d.toISOString().slice(0,10);
+  document.getElementById('sep-fecha-limite').value = d.toLocaleDateString('en-CA');
   // Poblar select de prendas
   const sel = document.getElementById('sep-prod-sel');
   sel.innerHTML = '<option value="">— Selecciona prenda —</option>' +
