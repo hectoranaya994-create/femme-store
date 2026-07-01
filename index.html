@@ -355,43 +355,57 @@ tr:hover td{background:rgba(255,255,255,.025)}
 </div>
 
 <!-- PANTALLA FIJA DE CAJERO: venta en pantalla completa, sin pestañas -->
-<div id="cajero-screen" style="display:none;padding:24px;background:var(--bg)">
-  <div style="max-width:640px;margin:0 auto">
-    <h2 style="font-size:18px;color:var(--gold-light);margin-bottom:16px;display:flex;align-items:center;gap:8px">🛒 Nueva venta</h2>
+<div id="cajero-screen" style="display:none;background:var(--bg)">
+  <div style="max-width:920px;margin:0 auto;padding:20px 24px 28px">
 
-    <div class="form-row" style="margin-bottom:10px">
-      <label style="display:flex;align-items:center;gap:6px">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c9a84c" stroke-width="2.5"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/><line x1="8" y1="12" x2="8" y2="12.01"/><line x1="12" y1="12" x2="16" y2="12"/></svg>
-        Escanea o busca un producto
-      </label>
+    <!-- Barra superior estilo terminal POS: total siempre visible -->
+    <div id="cs-total-box" style="background:linear-gradient(135deg,var(--gold-dark),var(--gold) 55%,var(--gold-light));border-radius:var(--radius);padding:16px 22px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;box-shadow:var(--shadow)">
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(15,15,15,.6)">🛒 Nueva venta</div>
+        <div id="cs-item-count" style="font-size:13px;color:rgba(15,15,15,.75);margin-top:3px;font-weight:600">Carrito vacío</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(15,15,15,.6)">Total a pagar</div>
+        <div id="cs-total-val" style="font-size:32px;font-weight:800;color:#0f0f0f;line-height:1.15">$0</div>
+      </div>
+    </div>
+
+    <!-- Buscador / escáner -->
+    <div class="form-row" style="margin-bottom:12px">
       <div class="barcode-field" style="position:relative">
-        <input type="text" id="cs-barcode" placeholder="Código de barras o nombre del producto..." oninput="buscarProductoCajero()" onkeydown="if(event.key==='Enter'){event.preventDefault();_intentarAgregarPorEnterCajero();}" autocomplete="off">
+        <input type="text" id="cs-barcode" placeholder="📷 Escanea el código de barras o escribe el nombre del producto..." oninput="buscarProductoCajero()" onkeydown="if(event.key==='Enter'){event.preventDefault();_intentarAgregarPorEnterCajero();}" autocomplete="off" style="font-size:14px;padding:12px 14px">
         <div id="cs-suggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);max-height:260px;overflow-y:auto;z-index:50;margin-top:4px;box-shadow:var(--shadow)"></div>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:3px" id="cs-barcode-hint">Con lector USB: escanea directo aquí · El producto se agrega automáticamente al carrito</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:5px" id="cs-barcode-hint">Con lector USB: escanea directo aquí · El producto se agrega automáticamente al carrito</div>
     </div>
 
-    <div style="height:0.5px;background:var(--border2);margin:14px 0"></div>
-
-    <div id="cs-cart-list" style="max-height:340px;overflow-y:auto;margin-bottom:14px">
-      <div style="text-align:center;color:var(--text3);font-size:13px;padding:30px 0;font-style:italic">El carrito está vacío. Escanea o busca un producto para empezar.</div>
+    <!-- Tabla del carrito -->
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr>
+            <th style="text-align:left">Producto</th>
+            <th style="text-align:center;width:120px">Cant.</th>
+            <th style="text-align:right;width:130px">Precio unit.</th>
+            <th style="text-align:right;width:120px">Total</th>
+            <th style="width:36px"></th>
+          </tr>
+        </thead>
+        <tbody id="cs-cart-list">
+          <tr><td colspan="5" style="text-align:center;color:var(--text3);font-size:13px;padding:30px 0;font-style:italic">El carrito está vacío. Escanea o busca un producto para empezar.</td></tr>
+        </tbody>
+      </table>
     </div>
 
-    <div id="cs-total-box" style="background:linear-gradient(135deg,var(--bg2),var(--bg3));border:1px solid var(--border2);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;display:none">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:14px;color:var(--text2)">Total a pagar</span>
-        <span id="cs-total-val" style="font-size:26px;font-weight:800;color:var(--gold-light)">$0</span>
-      </div>
-    </div>
-
-    <div id="cs-pago-box" style="display:none">
+    <!-- Forma de pago -->
+    <div id="cs-pago-box" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px">
       <label style="font-size:12px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:block">Forma de pago</label>
       <div id="cs-pago-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
       <button class="btn" style="font-size:12px;padding:6px 12px" onclick="agregarMetodoPagoCajero()">+ Agregar otro método de pago</button>
       <div id="cs-pago-resumen" style="margin-top:10px;font-size:13px"></div>
     </div>
 
-    <button class="btn primary" id="cs-btn-cobrar" onclick="confirmarVentaCajero()" disabled style="width:100%;margin-top:16px;padding:14px;font-size:15px;font-weight:700">Cobrar</button>
+    <button class="btn primary" id="cs-btn-cobrar" onclick="confirmarVentaCajero()" disabled style="width:100%;padding:16px;font-size:16px;font-weight:700;letter-spacing:.02em">Cobrar</button>
   </div>
 </div>
 
@@ -4119,13 +4133,14 @@ function totalCarritoCajero(){
 
 function renderCartCajero(){
   const cont = document.getElementById('cs-cart-list');
-  const totalBox = document.getElementById('cs-total-box');
   const pagoBox = document.getElementById('cs-pago-box');
   const btnCobrar = document.getElementById('cs-btn-cobrar');
+  const itemCount = document.getElementById('cs-item-count');
 
   if(cartCajero.length===0){
-    cont.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:13px;padding:30px 0;font-style:italic">El carrito está vacío. Escanea o busca un producto para empezar.</div>';
-    totalBox.style.display='none';
+    cont.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);font-size:13px;padding:30px 0;font-style:italic">El carrito está vacío. Escanea o busca un producto para empezar.</td></tr>';
+    document.getElementById('cs-total-val').textContent = fmt(0);
+    itemCount.textContent = 'Carrito vacío';
     pagoBox.style.display='none';
     btnCobrar.disabled = true;
     pagosCajero = [];
@@ -4133,27 +4148,27 @@ function renderCartCajero(){
   }
 
   cont.innerHTML = cartCajero.map((item,idx)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:11px 6px;border-bottom:1px solid var(--border)">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.nombre}</div>
-        <div style="display:flex;align-items:center;gap:4px;margin-top:5px">
-          <button onclick="cambiarCantidadCajero(${idx},-1)" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;font-size:14px;line-height:1">−</button>
-          <span style="font-size:14px;min-width:28px;text-align:center">${item.qty}</span>
-          <button onclick="cambiarCantidadCajero(${idx},1)" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;font-size:14px;line-height:1">+</button>
-          <span style="font-size:11px;color:var(--text3);margin-left:4px">×</span>
-          <input type="number" value="${item.price}" onchange="cambiarPrecioCajero(${idx},this.value)" style="width:90px;font-size:13px;padding:4px 7px;margin-left:2px">
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="font-size:13px;font-weight:500">${item.nombre}</td>
+      <td style="text-align:center">
+        <div style="display:inline-flex;align-items:center;gap:5px">
+          <button onclick="cambiarCantidadCajero(${idx},-1)" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;font-size:13px;line-height:1">−</button>
+          <span style="font-size:13px;min-width:22px;text-align:center">${item.qty}</span>
+          <button onclick="cambiarCantidadCajero(${idx},1)" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;font-size:13px;line-height:1">+</button>
         </div>
-      </div>
-      <div style="text-align:right;min-width:90px">
-        <div style="font-size:14px;font-weight:700;color:var(--gold-light)">${fmt(item.qty*item.price)}</div>
-      </div>
-      <button onclick="quitarDelCarritoCajero(${idx})" style="width:28px;height:28px;border-radius:6px;border:none;background:transparent;color:var(--red);cursor:pointer;font-size:17px" title="Quitar">×</button>
-    </div>
+      </td>
+      <td style="text-align:right">
+        <input type="number" value="${item.price}" onchange="cambiarPrecioCajero(${idx},this.value)" style="width:100px;font-size:13px;padding:5px 8px;text-align:right">
+      </td>
+      <td style="text-align:right;font-size:14px;font-weight:700;color:var(--gold-light);white-space:nowrap">${fmt(item.qty*item.price)}</td>
+      <td style="text-align:center"><button onclick="quitarDelCarritoCajero(${idx})" style="width:26px;height:26px;border-radius:6px;border:none;background:transparent;color:var(--red);cursor:pointer;font-size:16px" title="Quitar">×</button></td>
+    </tr>
   `).join('');
 
   const total = totalCarritoCajero();
+  const totalUnidades = cartCajero.reduce((s,i)=>s+i.qty,0);
   document.getElementById('cs-total-val').textContent = fmt(total);
-  totalBox.style.display='block';
+  itemCount.textContent = `${cartCajero.length} producto${cartCajero.length===1?'':'s'} · ${totalUnidades} unidad${totalUnidades===1?'':'es'}`;
   pagoBox.style.display='block';
 
   if(pagosCajero.length===0){
