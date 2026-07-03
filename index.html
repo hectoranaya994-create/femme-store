@@ -371,6 +371,12 @@ tr:hover td{background:rgba(255,255,255,.025)}
       </div>
     </div>
 
+    <!-- Campo de cliente -->
+    <div class="form-row" style="flex-shrink:0;margin-bottom:8px">
+      <input type="text" id="cs-cliente" placeholder="👤 Nombre del cliente (opcional)..." autocomplete="off"
+        style="font-size:13px;padding:9px 12px;width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text)">
+    </div>
+
     <!-- Buscador / escáner (fijo) -->
     <div class="form-row" style="flex-shrink:0;margin-bottom:8px">
       <div class="barcode-field" style="position:relative">
@@ -503,10 +509,12 @@ tr:hover td{background:rgba(255,255,255,.025)}
       <div class="card-header"><span class="card-title">Últimas ventas</span></div>
       <div id="recent-sales"></div>
     </div>
+  <div id="admin-danger-zone" style="display:none;margin-top:20px;padding:14px 16px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:10px">
+    <div style="font-size:13px;font-weight:700;color:#f87171;margin-bottom:6px">⚠️ Zona de administración</div>
+    <div style="font-size:12px;color:#9aa0b0;margin-bottom:10px">Estas acciones son irreversibles. Úsalas solo para limpiar datos de prueba antes de comenzar la operación real.</div>
+    <button onclick="limpiarDatosPrueba()" style="background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600">🗑️ Limpiar datos de prueba (ventas, caja, historial, cierres)</button>
   </div>
 </div>
-
-<!-- INVENTARIO -->
 <div id="tab-inventario" class="section">
   <!-- Sub-pestañas -->
   <div style="display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:0">
@@ -722,6 +730,7 @@ tr:hover td{background:rgba(255,255,255,.025)}
   <!-- Barra de acciones (solo admin) -->
   <div id="caja-admin-controls" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
     <button class="btn primary" onclick="openCajaModal()">+ Registrar movimiento</button>
+    <button onclick="imprimirTirillaCuadre()" style="background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.3);padding:7px 14px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600">🗘️ Cierre de caja</button>
     <select id="caja-filtro-medio" onchange="renderCaja()" style="font-size:13px;padding:7px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary)">
       <option value="">Todos los medios</option>
       <option value="Efectivo">💵 Efectivo</option>
@@ -1364,6 +1373,7 @@ async function cargarDatos(){
       caja        = d.caja        || [];
       proveedores = d.proveedores || [];
       compras     = d.compras     || [];
+      cierresCaja = d.cierresCaja || {};
     } else {
       // Primera vez — inicializar con datos base y subir a Firebase
       products    = JSON.parse(JSON.stringify(PRODUCTS_DEMO));
@@ -1373,10 +1383,10 @@ async function cargarDatos(){
       caja        = [];
       proveedores = JSON.parse(JSON.stringify(PROVEEDORES_DEMO));
       compras     = [];
-      await set(ref(db, 'data'), { products, ventas, historial, separados, caja, proveedores, compras });
+      await set(ref(db, 'data'), { products, ventas, historial, separados, caja, proveedores, compras, cierresCaja });
     }
     // Caché local por si se pierde la conexión
-    localStorage.setItem('inventapro_cache', JSON.stringify({products, ventas, historial, separados, caja, proveedores, compras}));
+    localStorage.setItem('inventapro_cache', JSON.stringify({products, ventas, historial, separados, caja, proveedores, compras, cierresCaja}));
   } catch(e) {
     // Sin conexión — usar caché local como respaldo
     const cache = localStorage.getItem('inventapro_cache');
@@ -1384,20 +1394,31 @@ async function cargarDatos(){
       const d = JSON.parse(cache);
       products = d.products || []; ventas = d.ventas || []; historial = d.historial || [];
       separados = d.separados || []; caja = d.caja || []; proveedores = d.proveedores || []; compras = d.compras || [];
+      cierresCaja = d.cierresCaja || {};
       toast('⚠️ Sin conexión — mostrando datos guardados localmente');
     } else {
       products = JSON.parse(JSON.stringify(PRODUCTS_DEMO));
       proveedores = JSON.parse(JSON.stringify(PROVEEDORES_DEMO));
-      ventas = []; historial = []; separados = []; caja = []; compras = [];
+      ventas = []; historial = []; separados = []; caja = []; compras = []; cierresCaja = {};
       toast('⚠️ Sin conexión a Firebase: ' + e.message);
     }
   }
 }
 
 let _guardarTimer = null;
+function limpiarDatosPrueba(){
+  pedirClaveAdmin('🗑️ Confirma tu clave de admin para limpiar datos de prueba', () => {
+    if(!confirm('⚠️ ¿Estás seguro? Esto borrará TODAS las ventas, movimientos de caja, historial y cierres. Los productos e inventario se conservan.\n\nEsta acción no se puede deshacer.')) return;
+    ventas = []; caja = []; historial = []; cierresCaja = {};
+    guardarDatos();
+    renderDashboard();
+    toast('✅ Datos de prueba eliminados. InventaPro está listo para la operación real.');
+  });
+}
+
 function guardarDatos(){
   // Caché local inmediato (instantáneo, no requiere internet)
-  localStorage.setItem('inventapro_cache', JSON.stringify({products, ventas, historial, separados, caja, proveedores, compras}));
+  localStorage.setItem('inventapro_cache', JSON.stringify({products, ventas, historial, separados, caja, proveedores, compras, cierresCaja}));
   // Firebase con pequeño debounce para no saturar con escrituras rápidas seguidas
   clearTimeout(_guardarTimer);
   _guardarTimer = setTimeout(_guardarEnFirebase, 400);
@@ -1407,14 +1428,14 @@ async function _guardarEnFirebase(){
   try {
     const { getDatabase, ref, set } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js');
     const db = getDatabase(fbApp);
-    await set(ref(db, 'data'), { products, ventas, historial, separados, caja, proveedores, compras });
+    await set(ref(db, 'data'), { products, ventas, historial, separados, caja, proveedores, compras, cierresCaja });
   } catch(e) {
     console.error('Error guardando en Firebase:', e);
     toast('⚠️ No se pudo guardar en la nube — revisa tu conexión');
   }
 }
 
-let products = [], ventas = [], historial = [], separados = [], caja = [], proveedores = [], compras = [];
+let products = [], ventas = [], historial = [], separados = [], caja = [], proveedores = [], compras = [], cierresCaja = {};
 // cargarDatos(); — llamado después del login
 
 let channels = [
@@ -2332,6 +2353,8 @@ function renderCart(){
   // Si no hay pagos aún, inicializar con uno (efectivo, monto = total)
   if(pagos.length===0){
     pagos = [{metodo:'Efectivo', monto: total}];
+  } else if(pagos.length===1){
+    pagos[0].monto = total;
   }
   renderPagos();
 }
@@ -3930,14 +3953,14 @@ function applyRoleRestrictions(role) {
     if (pwBtn) pwBtn.style.display = 'none';
     // Mostrar botón de cuadre del día
     const cuadreBtn = document.getElementById('btn-cuadre-cajero');
-    if (cuadreBtn) cuadreBtn.style.display = 'inline-block';
+    if (cuadreBtn) cuadreBtn.style.display = 'none'; // Cajero no tiene acceso al módulo de caja
     // Mostrar botón de acceso a Separados (versión limitada)
     const separadosBtn = document.getElementById('btn-separados-cajero');
     if (separadosBtn) separadosBtn.style.display = 'inline-block';
     const volverBtn = document.getElementById('btn-volver-venta-cajero');
     if (volverBtn) volverBtn.style.display = 'inline-block';
     const imprimirCuadreBtn = document.getElementById('btn-imprimir-cuadre-cajero');
-    if (imprimirCuadreBtn) imprimirCuadreBtn.style.display = 'inline-block';
+    if (imprimirCuadreBtn) imprimirCuadreBtn.style.display = 'none'; // Solo admin puede imprimir y cerrar
     const cajaAdminControls = document.getElementById('caja-admin-controls');
     if (cajaAdminControls) cajaAdminControls.style.display = 'none';
     const cajaAdminTabla = document.getElementById('caja-admin-tabla');
@@ -3958,27 +3981,104 @@ function applyRoleRestrictions(role) {
     if (cajaAdminControls) cajaAdminControls.style.display = 'flex';
     const cajaAdminTabla = document.getElementById('caja-admin-tabla');
     if (cajaAdminTabla) cajaAdminTabla.style.display = 'block';
+    const dangerZone = document.getElementById('admin-danger-zone');
+    if (dangerZone) dangerZone.style.display = 'block';
   }
 }
 
 function imprimirTirillaCuadre(){
-  const hoy = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD en hora local
-  const movsHoy = caja.filter(m=>m.fecha===hoy);
+  // Buscar el último día con movimientos en caja que no tenga cierre registrado
+  const diasConMovs = [...new Set(caja.map(m=>m.fecha))].sort().reverse();
+  const fechaSinCierre = diasConMovs.find(f => !cierresCaja[f]);
 
-  if(movsHoy.length===0){ toast('No hay movimientos registrados hoy'); return; }
+  if(!fechaSinCierre){
+    // Todos los días ya tienen cierre — preguntar si quiere reimprimir el último
+    const ultimaFecha = diasConMovs[0];
+    if(!ultimaFecha){ toast('No hay movimientos registrados'); return; }
+    const ultimaFmt = new Date(ultimaFecha+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'});
+    if(!confirm(`✅ Todos los días ya tienen cierre registrado.\n\n¿Deseas reimprimir el cierre del ${ultimaFmt}?`)) return;
+    const movsUltima = caja.filter(m=>m.fecha===ultimaFecha);
+    pedirClaveAdmin('🔐 Clave de admin para reimprimir cierre', () => {
+      _ejecutarCierreCaja(ultimaFecha, movsUltima, true);
+    });
+    return;
+  }
 
+  const movsHoy = caja.filter(m=>m.fecha===fechaSinCierre);
+  const fechaFmt = new Date(fechaSinCierre+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'});
+  pedirClaveAdmin(`🔐 Clave de admin — Cierre de caja del ${fechaFmt}`, () => {
+    _ejecutarCierreCaja(fechaSinCierre, movsHoy);
+  });
+}
+
+function pedirClaveAdmin(titulo, onSuccess){
+  const overlay = document.createElement('div');
+  overlay.id = 'modal-clave-admin';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `
+    <div style="background:#1a1d24;border:1px solid #2a2e38;border-radius:14px;padding:24px;width:100%;max-width:340px">
+      <div style="font-size:15px;font-weight:700;color:#e8eaf0;margin-bottom:6px">${titulo}</div>
+      <div style="font-size:12px;color:#636878;margin-bottom:16px">Ingresa la contraseña del administrador para continuar</div>
+      <input id="modal-admin-pw" type="password" placeholder="Contraseña admin"
+        style="width:100%;background:#111318;border:1px solid #2a2e38;color:#e8eaf0;padding:10px 12px;border-radius:8px;font-size:14px;outline:none;margin-bottom:12px">
+      <div id="modal-admin-err" style="color:#ef4444;font-size:12px;margin-bottom:10px;display:none">Contraseña incorrecta</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="document.body.removeChild(document.getElementById('modal-clave-admin'))"
+          style="padding:8px 16px;background:transparent;border:1px solid #2a2e38;color:#9aa0b0;border-radius:8px;cursor:pointer;font-size:13px">Cancelar</button>
+        <button id="modal-admin-btn"
+          style="padding:8px 16px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">Confirmar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const input = document.getElementById('modal-admin-pw');
+  const btn = document.getElementById('modal-admin-btn');
+  const err = document.getElementById('modal-admin-err');
+  input.focus();
+  const verificar = async () => {
+    const pw = input.value;
+    // Obtener clave admin de Firebase
+    try {
+      const { getDatabase, ref: fbRef, get } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js');
+      const db2 = getDatabase(fbApp);
+      const snap = await get(fbRef(db2, 'usuarios/admin'));
+      const adminData = snap.val();
+      if(adminData && adminData.password === pw){
+        document.body.removeChild(overlay);
+        onSuccess();
+      } else {
+        err.style.display = 'block';
+        input.value = '';
+        input.focus();
+      }
+    } catch(e){
+      err.textContent = 'Error verificando clave. Intenta de nuevo.';
+      err.style.display = 'block';
+    }
+  };
+  btn.onclick = verificar;
+  input.onkeydown = e => { if(e.key==='Enter') verificar(); };
+  overlay.onclick = e => { if(e.target===overlay) document.body.removeChild(overlay); };
+}
+
+function _ejecutarCierreCaja(fecha, movsHoy, esReimpresion=false){
   const ingEf = movsHoy.filter(m=>m.tipo==='ingreso'&&m.medio==='Efectivo').reduce((a,m)=>a+m.monto,0);
   const egrEf = movsHoy.filter(m=>m.tipo==='egreso'&&m.medio==='Efectivo').reduce((a,m)=>a+m.monto,0);
   const ingBk = movsHoy.filter(m=>m.tipo==='ingreso'&&m.medio==='Banco').reduce((a,m)=>a+m.monto,0);
   const egrBk = movsHoy.filter(m=>m.tipo==='egreso'&&m.medio==='Banco').reduce((a,m)=>a+m.monto,0);
-  const totalDia = (ingEf+ingBk) - (egrEf+egrBk);
-
-  const ventasHoy = ventas.filter(v=>v.fecha===hoy);
-  const numVentas = ventasHoy.length;
-
+  const totalDia = (ingEf+ingBk)-(egrEf+egrBk);
+  const ventasHoy = ventas.filter(v=>v.fecha===fecha);
   const ahora = new Date();
   const hora = ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
   const fechaTxt = ahora.toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'});
+
+  // Registrar cierre en Firebase (solo si no es reimpresión)
+  if(!esReimpresion){
+    cierresCaja[fecha] = { fecha, hora, totalDia, numVentas: ventasHoy.length, creadoEn: Date.now() };
+    guardarDatos();
+    toast('✅ Cierre de caja registrado para ' + fechaTxt);
+  } else {
+    toast('🖨️ Reimprimiendo cierre del ' + fechaTxt);
+  }
 
   const win = window.open('','_blank','width=380,height=600');
   win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
@@ -3986,31 +4086,23 @@ function imprimirTirillaCuadre(){
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Courier New',monospace;font-size:12px;color:#000;width:78mm;margin:0 auto;padding:6px}
-  .center{text-align:center}
-  .bold{font-weight:700}
+  .center{text-align:center}.bold{font-weight:700}
   .line{border-top:1px dashed #000;margin:6px 0}
   table{width:100%;border-collapse:collapse;font-size:11px}
-  td{padding:2px 0}
-  .right{text-align:right}
+  td{padding:2px 0}.right{text-align:right}
   .totales td{font-size:13px;font-weight:700}
   .footer{margin-top:10px;text-align:center;font-size:10px}
   .no-print{text-align:center;margin-top:14px}
-  @media print{
-    .no-print{display:none}
-    @page{margin:0;size:80mm auto}
-    body{width:78mm}
-  }
+  @media print{.no-print{display:none}@page{margin:0;size:80mm auto}body{width:78mm}}
 </style>
 </head><body>
-
 <div class="center bold" style="font-size:16px;letter-spacing:.05em">FEMME STORE</div>
 <div class="center" style="font-size:10px">Powered by InventaPro</div>
-<div class="center bold" style="margin-top:6px">CUADRE DE CAJA</div>
+<div class="center bold" style="margin-top:6px">CIERRE DE CAJA ✓</div>
 <div class="line"></div>
 <div>Fecha: ${fechaTxt}  Hora: ${hora}</div>
-<div>Ventas del día: ${numVentas}</div>
+<div>Ventas del día: ${ventasHoy.length}</div>
 <div class="line"></div>
-
 <table>
   <tr class="bold"><td colspan="2">💵 EFECTIVO</td></tr>
   <tr><td>Ingresos</td><td class="right">${fmt(ingEf)}</td></tr>
@@ -4031,12 +4123,10 @@ function imprimirTirillaCuadre(){
 <div class="line"></div>
 <div style="margin-top:10px">Cajero: ____________________</div>
 <div style="margin-top:14px">Firma: _____________________</div>
-<div class="footer">Cuadre generado automáticamente<br>por InventaPro</div>
-
+<div class="footer">Cierre generado automáticamente<br>por InventaPro</div>
 <div class="no-print">
   <button onclick="window.print()" style="background:#1E2A3A;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">🖨️ Imprimir cuadre</button>
 </div>
-
 </body></html>`);
   win.document.close();
 }
@@ -4204,6 +4294,8 @@ function renderCartCajero(){
 
   if(pagosCajero.length===0){
     pagosCajero = [{metodo:'Efectivo', monto: total}];
+  } else if(pagosCajero.length===1){
+    pagosCajero[0].monto = total;
   }
   renderPagosCajero();
 }
@@ -4252,12 +4344,26 @@ function quitarMetodoPagoCajero(idx){ pagosCajero.splice(idx,1); renderPagosCaje
 
 function confirmarVentaCajero(){
   if(cartCajero.length===0) return;
+
+  // Verificar si hay cierre pendiente del día anterior
+  const hoyLocal = new Date().toLocaleDateString('en-CA');
+  const ayer = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
+  const ventasAyer = ventas.filter(v=>v.fecha===ayer);
+  if(ventasAyer.length > 0 && !cierresCaja[ayer]){
+    // Hubo ventas ayer pero no hay cierre — bloquear
+    const ayerFmt = new Date(ayer+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'});
+    toast(`🔒 Cierre de caja pendiente del ${ayerFmt}. El administrador debe cerrar caja antes de continuar.`, 6000);
+    return;
+  }
+
   const total = totalCarritoCajero();
   const sumaPagos = pagosCajero.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
   if(Math.abs(total-sumaPagos)>=1){ toast('⚠️ El pago no coincide con el total'); return; }
 
   const today = new Date().toLocaleDateString('en-CA');
   const metodosTxt = pagosCajero.map(p=>p.metodo+' '+fmt(p.monto)).join(' + ');
+  const clienteNombre = (document.getElementById('cs-cliente')?.value||'').trim() || 'Sin nombre';
+  const numFactura = 'F-' + Date.now().toString().slice(-6);
 
   cartCajero.forEach(item=>{
     const pi = products.findIndex(p=>p.nombre===item.nombre);
@@ -4270,7 +4376,7 @@ function confirmarVentaCajero(){
         historial.unshift({fecha:today, msg, tipo:'nueva'});
       }
     }
-    ventas.unshift({fecha:today, prod:item.nombre, qty:item.qty, price:item.price, desc:0, metodo:metodosTxt});
+    ventas.unshift({fecha:today, prod:item.nombre, qty:item.qty, price:item.price, desc:0, metodo:metodosTxt, cliente:clienteNombre, factura:numFactura});
   });
 
   const mediosCaja = {'Efectivo':'Efectivo','Transferencia':'Banco','Nequi':'Banco','Daviplata':'Banco','Tarjeta':'Banco'};
@@ -4290,13 +4396,15 @@ function confirmarVentaCajero(){
 
   guardarDatos();
   toast('✓ Venta registrada: '+fmt(total));
-  imprimirTirillaVenta(cartCajero, pagosCajero, total, today);
+  imprimirTirillaVenta(cartCajero, pagosCajero, total, today, clienteNombre, numFactura);
   cartCajero = []; pagosCajero = [];
+  const csCliente = document.getElementById('cs-cliente');
+  if(csCliente) csCliente.value = '';
   renderCartCajero();
   document.getElementById('cs-barcode').focus();
 }
 
-function imprimirTirillaVenta(items, pagosUsados, total, fecha){
+function imprimirTirillaVenta(items, pagosUsados, total, fecha, cliente='', factura=''){
   const ahora = new Date();
   const hora = ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
   const fechaTxt = ahora.toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'});
@@ -4327,6 +4435,8 @@ function imprimirTirillaVenta(items, pagosUsados, total, fecha){
 <div class="center" style="font-size:10px">Powered by InventaPro</div>
 <div class="line"></div>
 <div>Fecha: ${fechaTxt}  Hora: ${hora}</div>
+${factura?`<div>Factura: <strong>${factura}</strong></div>`:''}
+${cliente&&cliente!=='Sin nombre'?`<div>Cliente: ${cliente}</div>`:''}
 <div class="line"></div>
 
 <table>
