@@ -3542,10 +3542,7 @@ function liqRegistrarVenta(){
   showTab('ventas', document.querySelectorAll('.nav-btn')[2]);
 }
 
-renderDashboard();
-renderInventario();
-actualizarBadgeSeparados();
-actualizarBadgeCxP();
+// Render inicial se hace después del login en cargarDatos()
 
 // ── MÓDULO COMPRAS ─────────────────────────────────────────────
 
@@ -3914,6 +3911,10 @@ async function doLogin() {
     await cargarDatos();
     applyRoleRestrictions(currentRole);
     renderDashboard();
+    renderInventario();
+    actualizarBadgeSeparados();
+    actualizarBadgeCxP();
+    actualizarBadge();
     btn.textContent = 'Ingresar';
     btn.disabled = false;
 
