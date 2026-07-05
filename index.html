@@ -60,9 +60,9 @@ input::placeholder{color:var(--text3)}
 }
 
 /* ── CONTENT ── */
-.content{padding:24px;background:var(--bg)}
+.content{padding:24px;background:var(--bg);min-height:500px}
 .section{display:none}
-.section.active{display:block}
+.section.active{display:block!important;min-height:400px}
 
 /* ── KPI CARDS ── */
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
@@ -1473,7 +1473,13 @@ function actualizarBadge(){
 function showTab(t, btn){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('tab-'+t).classList.add('active');
+  const seccionActiva = document.getElementById('tab-'+t);
+  seccionActiva.classList.add('active');
+  // Forzar reflow/repintado del navegador (fix defensivo para bug de colapso visual)
+  void seccionActiva.offsetHeight;
+  seccionActiva.style.display = 'none';
+  void seccionActiva.offsetHeight;
+  seccionActiva.style.display = '';
   if(btn) btn.classList.add('active');
   else document.getElementById('nav-'+t) && document.getElementById('nav-'+t).classList.add('active');
   if(t==='dashboard') renderDashboard();
