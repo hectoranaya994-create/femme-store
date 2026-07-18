@@ -2137,6 +2137,116 @@ function actualizarSelectProveedores(){
   if(prev) sel.value = prev;
 }
 
+// ── PROVEEDORES: CRUD ──────────────────────────────
+window._provEditId = null;
+
+function openProvModal(id){
+  window._provEditId = (id !== undefined) ? id : null;
+  document.getElementById('prov-modal-title').textContent = (id !== undefined) ? 'Editar proveedor' : 'Nuevo proveedor';
+  if(id !== undefined){
+    const p = proveedores.find(x=>x.id===id);
+    if(!p) return;
+    document.getElementById('prov-nombre').value = p.nombre || '';
+    document.getElementById('prov-tipo').value = p.tipo || 'Mercancía';
+    document.getElementById('prov-tel').value = p.tel || '';
+    document.getElementById('prov-email').value = p.email || '';
+    document.getElementById('prov-contacto').value = p.contacto || '';
+    document.getElementById('prov-ciudad').value = p.ciudad || '';
+    document.getElementById('prov-notas').value = p.notas || '';
+  } else {
+    document.getElementById('prov-nombre').value = '';
+    document.getElementById('prov-tipo').value = 'Mercancía';
+    document.getElementById('prov-tel').value = '';
+    document.getElementById('prov-email').value = '';
+    document.getElementById('prov-contacto').value = '';
+    document.getElementById('prov-ciudad').value = '';
+    document.getElementById('prov-notas').value = '';
+  }
+  document.getElementById('modal-prov').classList.add('open');
+}
+
+function guardarProveedor(){
+  const nombre = document.getElementById('prov-nombre').value.trim();
+  if(!nombre){ toast('⚠️ Ingresa el nombre de la empresa'); return; }
+  const datos = {
+    tipo: document.getElementById('prov-tipo').value,
+    nombre,
+    tel: document.getElementById('prov-tel').value.trim(),
+    email: document.getElementById('prov-email').value.trim(),
+    contacto: document.getElementById('prov-contacto').value.trim(),
+    ciudad: document.getElementById('prov-ciudad').value.trim(),
+    notas: document.getElementById('prov-notas').value.trim(),
+  };
+  if(window._provEditId){
+    const p = proveedores.find(x=>x.id===window._provEditId);
+    Object.assign(p, datos);
+  } else {
+    proveedores.push({ id: 'PROV'+Date.now(), ...datos });
+  }
+  guardarDatos();
+  actualizarSelectProveedores();
+  closeModal('modal-prov');
+  renderProveedores();
+  toast('Proveedor guardado ✓');
+}
+
+function eliminarProveedor(id){
+  if(!confirm('¿Eliminar este proveedor?')) return;
+  const idx = proveedores.findIndex(x=>x.id===id);
+  if(idx===-1) return;
+  proveedores.splice(idx,1);
+  guardarDatos();
+  actualizarSelectProveedores();
+  renderProveedores();
+  toast('Proveedor eliminado');
+}
+
+function renderProveedores(){
+  const tbody = document.getElementById('prov-tbody');
+  const statsBox = document.getElementById('prov-stats');
+  if(!tbody) return;
+
+  const texto = (document.getElementById('prov-search').value||'').trim().toLowerCase();
+  const filtroTipo = document.getElementById('prov-filtro-tipo').value;
+
+  const filtrados = proveedores.filter(p=>{
+    const matchTexto = !texto || p.nombre.toLowerCase().includes(texto) || (p.contacto||'').toLowerCase().includes(texto);
+    const matchTipo = !filtroTipo || p.tipo === filtroTipo;
+    return matchTexto && matchTipo;
+  });
+
+  if(filtrados.length===0){
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3);font-size:13px">
+      ${proveedores.length===0 ? 'No hay proveedores registrados' : 'Sin resultados para ese filtro'}
+    </td></tr>`;
+  } else {
+    tbody.innerHTML = filtrados.map(p=>`
+      <tr>
+        <td>${p.nombre}</td>
+        <td>${p.tipo==='Gastos' ? '💸 Gastos' : '📦 Mercancía'}</td>
+        <td>${p.tel ? `<a href="https://wa.me/57${p.tel.replace(/\D/g,'')}" target="_blank" style="color:#25d366">${p.tel}</a>` : '—'}</td>
+        <td>${p.email||'—'}</td>
+        <td>${p.contacto||'—'}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.notas||''}">${p.notas||'—'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn sm" onclick="openProvModal('${p.id}')">✏️</button>
+          <button class="btn sm danger" onclick="eliminarProveedor('${p.id}')">🗑️</button>
+        </td>
+      </tr>`).join('');
+  }
+
+  if(statsBox){
+    const total = proveedores.length;
+    const mercancia = proveedores.filter(p=>p.tipo==='Mercancía').length;
+    const gastos = proveedores.filter(p=>p.tipo==='Gastos').length;
+    statsBox.innerHTML = `
+      <div class="kpi"><div class="kpi-label">Total proveedores</div><div class="kpi-val">${total}</div></div>
+      <div class="kpi"><div class="kpi-label">📦 Mercancía</div><div class="kpi-val">${mercancia}</div></div>
+      <div class="kpi"><div class="kpi-label">💸 Gastos</div><div class="kpi-val">${gastos}</div></div>
+    `;
+  }
+}
+
 function openModal(mode, idx){
   editIdx = (mode==='edit') ? idx : null;
   document.getElementById('modal-title').textContent = mode==='edit' ? 'Editar producto' : 'Agregar producto';
