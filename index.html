@@ -358,6 +358,7 @@ tr:hover td{background:rgba(255,255,255,.025)}
     </button>
     <button class="nav-btn" id="nav-caja" onclick="showTab('caja',this)">Caja</button>
     <button class="nav-btn" id="nav-proveedores" onclick="showTab('proveedores',this)">Proveedores</button>
+    <button class="nav-btn" id="nav-ajuste" onclick="showTab('ajuste',this)">Ajuste Inventario</button>
   </div>
   <div style="display:flex;align-items:center;gap:10px">
     <span id="topbar-user" style="font-size:11px;color:#666;letter-spacing:.05em"></span>
@@ -716,7 +717,77 @@ tr:hover td{background:rgba(255,255,255,.025)}
   </div>
 </div>
 
-<!-- CAJA -->
+<!-- AJUSTE DE INVENTARIO FÍSICO -->
+<div id="tab-ajuste" class="section">
+  <div class="card" style="margin-bottom:16px">
+    <div style="font-size:14px;font-weight:600;margin-bottom:4px">📋 Conteo físico</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Ve escaneando o buscando cada producto y agregándolo a la lista. Cuando termines de contar todo, aplica los ajustes de una sola vez.</div>
+    <div class="barcode-field" style="position:relative">
+      <input type="text" id="adj-barcode" placeholder="📷 Escanea el código de barras o escribe el nombre del producto..." oninput="buscarProductoAjuste()" autocomplete="off" style="font-size:13px;padding:9px 12px">
+    </div>
+    <div id="adj-suggest" style="display:none;position:relative;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);margin-top:4px;max-height:260px;overflow-y:auto;z-index:5"></div>
+  </div>
+
+  <div class="card" id="adj-producto-card" style="display:none;margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div>
+        <div style="font-size:15px;font-weight:600" id="adj-producto-nombre">—</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px" id="adj-producto-barcode"></div>
+      </div>
+      <button onclick="cancelarAjusteProducto()" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:end">
+      <div>
+        <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:5px">Stock en el sistema</label>
+        <div style="font-size:22px;font-weight:700" id="adj-stock-sistema">0</div>
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:5px">Cantidad contada físicamente</label>
+        <input type="number" id="adj-cantidad-contada" min="0" step="1" oninput="calcularDiferenciaAjuste()" onkeydown="if(event.key==='Enter'){event.preventDefault();agregarProductoALaLista();}" style="font-size:16px;font-weight:600;padding:9px 12px">
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:5px">Diferencia</label>
+        <div style="font-size:22px;font-weight:700" id="adj-diferencia">—</div>
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:5px">Motivo / nota (opcional)</label>
+      <input type="text" id="adj-motivo" placeholder="Ej: conteo mensual, producto dañado, error de registro...">
+    </div>
+    <button class="btn primary" onclick="agregarProductoALaLista()" style="margin-top:16px">+ Agregar a la lista de conteo</button>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:20px">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:14px;font-weight:600">🧮 Conteo en curso</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px" id="adj-conteo-resumen">Ningún producto agregado todavía</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="vaciarListaConteo()" id="adj-btn-vaciar" style="display:none;background:transparent;border:1px solid var(--border2);color:var(--text2);padding:8px 14px;border-radius:var(--radius-sm);cursor:pointer;font-size:12px">Vaciar lista</button>
+        <button onclick="finalizarConteoFisico()" id="adj-btn-finalizar" style="display:none;background:var(--green);color:#08210f;border:none;padding:8px 16px;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:700">✅ Finalizar conteo y aplicar ajustes</button>
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Producto</th><th>Stock sistema</th><th>Contado</th><th>Diferencia</th><th>Motivo</th><th></th>
+      </tr></thead>
+      <tbody id="adj-lista-conteo-tbody">
+        <tr><td colspan="6" style="text-align:center;color:var(--text3);font-size:12px;padding:20px 0;font-style:italic">Busca productos arriba y agrégalos a la lista para empezar el conteo.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600">Historial de ajustes aplicados</div>
+    <table>
+      <thead><tr>
+        <th>Fecha</th><th>Producto</th><th>Stock anterior</th><th>Contado</th><th>Diferencia</th><th>Usuario</th><th>Motivo</th>
+      </tr></thead>
+      <tbody id="ajuste-historial-tbody"></tbody>
+    </table>
+  </div>
+</div>
 <div id="tab-caja" class="section">
   <div style="display:flex;gap:10px;margin-bottom:16px">
     <button id="btn-volver-venta-cajero" onclick="volverAVentaCajero()" style="display:none;background:rgba(201,168,76,.1);color:#c9a84c;border:1px solid rgba(201,168,76,.3);padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:500">← Volver a registrar venta</button>
@@ -1388,6 +1459,7 @@ async function cargarDatos(){
       proveedores = d.proveedores || [];
       compras     = d.compras     || [];
       cierresCaja = d.cierresCaja || {};
+      ajustesInventario = d.ajustesInventario || [];
     } else {
       // Primera vez — inicializar con datos base y subir a Firebase
       products    = JSON.parse(JSON.stringify(PRODUCTS_DEMO));
@@ -1397,10 +1469,11 @@ async function cargarDatos(){
       caja        = [];
       proveedores = JSON.parse(JSON.stringify(PROVEEDORES_DEMO));
       compras     = [];
-      await set(ref(db, 'data'), { products, ventas, historial, separados, caja, proveedores, compras, cierresCaja });
+      ajustesInventario = [];
+      await set(ref(db, 'data'), { products, ventas, historial, separados, caja, proveedores, compras, cierresCaja, ajustesInventario });
     }
     // Caché local por si se pierde la conexión
-    localStorage.setItem('inventapro_cache', JSON.stringify({products, ventas, historial, separados, caja, proveedores, compras, cierresCaja}));
+    localStorage.setItem('inventapro_cache', JSON.stringify({products, ventas, historial, separados, caja, proveedores, compras, cierresCaja, ajustesInventario}));
   } catch(e) {
     // Sin conexión — usar caché local como respaldo
     const cache = localStorage.getItem('inventapro_cache');
@@ -1409,11 +1482,12 @@ async function cargarDatos(){
       products = d.products || []; ventas = d.ventas || []; historial = d.historial || [];
       separados = d.separados || []; caja = d.caja || []; proveedores = d.proveedores || []; compras = d.compras || [];
       cierresCaja = d.cierresCaja || {};
+      ajustesInventario = d.ajustesInventario || [];
       toast('⚠️ Sin conexión — mostrando datos guardados localmente');
     } else {
       products = JSON.parse(JSON.stringify(PRODUCTS_DEMO));
       proveedores = JSON.parse(JSON.stringify(PROVEEDORES_DEMO));
-      ventas = []; historial = []; separados = []; caja = []; compras = []; cierresCaja = {};
+      ventas = []; historial = []; separados = []; caja = []; compras = []; cierresCaja = {}; ajustesInventario = [];
       toast('⚠️ Sin conexión a Firebase: ' + e.message);
     }
   }
@@ -1432,7 +1506,7 @@ function limpiarDatosPrueba(){
 
 function guardarDatos(){
   // Caché local inmediato (instantáneo, no requiere internet)
-  localStorage.setItem('inventapro_cache', JSON.stringify({products, ventas, historial, separados, caja, proveedores, compras, cierresCaja}));
+  localStorage.setItem('inventapro_cache', JSON.stringify({products, ventas, historial, separados, caja, proveedores, compras, cierresCaja, ajustesInventario}));
   // Firebase con pequeño debounce para no saturar con escrituras rápidas seguidas
   clearTimeout(_guardarTimer);
   _guardarTimer = setTimeout(_guardarEnFirebase, 400);
@@ -1442,14 +1516,221 @@ async function _guardarEnFirebase(){
   try {
     const { getDatabase, ref, set } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js');
     const db = getDatabase(fbApp);
-    await set(ref(db, 'data'), { products, ventas, historial, separados, caja, proveedores, compras, cierresCaja });
+    await set(ref(db, 'data'), { products, ventas, historial, separados, caja, proveedores, compras, cierresCaja, ajustesInventario });
   } catch(e) {
     console.error('Error guardando en Firebase:', e);
     toast('⚠️ No se pudo guardar en la nube — revisa tu conexión');
   }
 }
 
-let products = [], ventas = [], historial = [], separados = [], caja = [], proveedores = [], compras = [], cierresCaja = {};
+let products = [], ventas = [], historial = [], separados = [], caja = [], proveedores = [], compras = [], cierresCaja = {}, ajustesInventario = [];
+let currentUser = null;
+
+// ── MÓDULO AJUSTE DE INVENTARIO FÍSICO ───────────────────────
+let _bcTimerAjuste = null;
+let _productoAjusteActual = null;
+let listaConteoFisico = []; // { producto, stockAnterior, contado, diferencia, motivo }
+
+function buscarProductoAjuste(){
+  clearTimeout(_bcTimerAjuste);
+  _bcTimerAjuste = setTimeout(_ejecutarBusquedaAjuste, 100);
+}
+
+function _ejecutarBusquedaAjuste(){
+  const texto = document.getElementById('adj-barcode').value.trim();
+  const suggest = document.getElementById('adj-suggest');
+
+  if(!texto){ suggest.style.display='none'; return; }
+
+  const exacto = products.find(p=>p.barcode && p.barcode===texto);
+  if(exacto){
+    _seleccionarProductoAjuste(exacto.nombre);
+    return;
+  }
+
+  const texto_low = texto.toLowerCase();
+  const matches = products.filter(p=>p.nombre.toLowerCase().includes(texto_low)).slice(0,8);
+
+  if(matches.length===0){
+    suggest.style.display='block';
+    suggest.innerHTML = `<div style="padding:10px 12px;font-size:13px;color:var(--text3);font-style:italic">Sin coincidencias para "${texto}"</div>`;
+    return;
+  }
+
+  suggest.style.display='block';
+  suggest.innerHTML = matches.map(p=>`
+    <div onclick="_seleccionarProductoAjuste('${p.nombre.replace(/'/g,"\\'")}')"
+      style="padding:10px 12px;font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='transparent'">
+      <span>${p.nombre}</span>
+      <span style="color:var(--text3);font-size:11px">Stock: ${p.stock}</span>
+    </div>
+  `).join('');
+}
+
+function _seleccionarProductoAjuste(nombre){
+  const p = products.find(x=>x.nombre===nombre);
+  if(!p) return;
+  _productoAjusteActual = p;
+
+  document.getElementById('adj-barcode').value = '';
+  document.getElementById('adj-suggest').style.display = 'none';
+  document.getElementById('adj-producto-card').style.display = 'block';
+  document.getElementById('adj-producto-nombre').textContent = p.nombre;
+  document.getElementById('adj-producto-barcode').textContent = p.barcode ? ('Código: '+p.barcode) : '';
+  document.getElementById('adj-stock-sistema').textContent = p.stock;
+  document.getElementById('adj-cantidad-contada').value = '';
+  document.getElementById('adj-motivo').value = '';
+  document.getElementById('adj-diferencia').textContent = '—';
+  document.getElementById('adj-diferencia').style.color = 'var(--text)';
+  setTimeout(()=>document.getElementById('adj-cantidad-contada').focus(), 100);
+}
+
+function cancelarAjusteProducto(){
+  _productoAjusteActual = null;
+  document.getElementById('adj-producto-card').style.display = 'none';
+  document.getElementById('adj-barcode').value = '';
+  document.getElementById('adj-barcode').focus();
+}
+
+function calcularDiferenciaAjuste(){
+  if(!_productoAjusteActual) return;
+  const contado = document.getElementById('adj-cantidad-contada').value;
+  const el = document.getElementById('adj-diferencia');
+  if(contado===''){ el.textContent='—'; el.style.color='var(--text)'; return; }
+  const diff = parseInt(contado) - _productoAjusteActual.stock;
+  el.textContent = (diff>0?'+':'') + diff;
+  el.style.color = diff===0 ? 'var(--text)' : diff>0 ? 'var(--green)' : 'var(--red)';
+}
+
+function agregarProductoALaLista(){
+  if(!_productoAjusteActual) return;
+  const contadoRaw = document.getElementById('adj-cantidad-contada').value;
+  if(contadoRaw===''){ toast('⚠️ Escribe la cantidad contada'); return; }
+  const contado = parseInt(contadoRaw);
+  if(isNaN(contado) || contado<0){ toast('⚠️ Cantidad inválida'); return; }
+
+  const motivo = document.getElementById('adj-motivo').value.trim();
+  const nombre = _productoAjusteActual.nombre;
+
+  // Si el producto ya estaba en la lista, se actualiza en vez de duplicarlo
+  const idxExistente = listaConteoFisico.findIndex(x=>x.producto===nombre);
+  const item = {
+    producto: nombre,
+    stockAnterior: _productoAjusteActual.stock,
+    contado,
+    diferencia: contado - _productoAjusteActual.stock,
+    motivo: motivo || '—'
+  };
+  if(idxExistente>=0) listaConteoFisico[idxExistente] = item;
+  else listaConteoFisico.push(item);
+
+  toast(`✓ ${nombre} agregado al conteo (${contado} uds)`);
+  cancelarAjusteProducto();
+  renderListaConteoFisico();
+}
+
+function quitarDeListaConteo(nombre){
+  listaConteoFisico = listaConteoFisico.filter(x=>x.producto!==nombre);
+  renderListaConteoFisico();
+}
+
+function vaciarListaConteo(){
+  if(listaConteoFisico.length===0) return;
+  if(!confirm('¿Vaciar toda la lista de conteo? No se aplicará ningún ajuste.')) return;
+  listaConteoFisico = [];
+  renderListaConteoFisico();
+}
+
+function renderListaConteoFisico(){
+  const tbody = document.getElementById('adj-lista-conteo-tbody');
+  const resumen = document.getElementById('adj-conteo-resumen');
+  const btnFinalizar = document.getElementById('adj-btn-finalizar');
+  const btnVaciar = document.getElementById('adj-btn-vaciar');
+
+  if(listaConteoFisico.length===0){
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text3);font-size:12px;padding:20px 0;font-style:italic">Busca productos arriba y agrégalos a la lista para empezar el conteo.</td></tr>`;
+    resumen.textContent = 'Ningún producto agregado todavía';
+    btnFinalizar.style.display = 'none';
+    btnVaciar.style.display = 'none';
+    return;
+  }
+
+  const conDiferencia = listaConteoFisico.filter(x=>x.diferencia!==0).length;
+  resumen.textContent = `${listaConteoFisico.length} producto(s) en la lista · ${conDiferencia} con diferencia`;
+  btnFinalizar.style.display = 'inline-block';
+  btnVaciar.style.display = 'inline-block';
+
+  tbody.innerHTML = listaConteoFisico.map(x=>`
+    <tr>
+      <td>${x.producto}</td>
+      <td>${x.stockAnterior}</td>
+      <td>${x.contado}</td>
+      <td style="color:${x.diferencia>0?'var(--green)':x.diferencia<0?'var(--red)':'var(--text)'};font-weight:600">${x.diferencia>0?'+':''}${x.diferencia}</td>
+      <td style="font-size:12px;color:var(--text2)">${x.motivo}</td>
+      <td><button onclick="quitarDeListaConteo('${x.producto.replace(/'/g,"\\'")}')" style="background:transparent;border:none;color:var(--red);cursor:pointer;font-size:16px">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+function finalizarConteoFisico(){
+  if(listaConteoFisico.length===0) return;
+  const conDiferencia = listaConteoFisico.filter(x=>x.diferencia!==0);
+  const sinCambios = listaConteoFisico.length - conDiferencia.length;
+
+  let msg = `¿Aplicar el ajuste de ${listaConteoFisico.length} producto(s)?`;
+  if(conDiferencia.length>0) msg += `\n\n${conDiferencia.length} producto(s) cambiarán su stock.`;
+  if(sinCambios>0) msg += `\n${sinCambios} producto(s) no tienen diferencia (no se registran).`;
+  if(!confirm(msg)) return;
+
+  const fecha = new Date().toLocaleString('es-CO');
+  let aplicados = 0;
+
+  listaConteoFisico.forEach(item=>{
+    if(item.diferencia===0) return; // nada que ajustar
+    const idx = products.findIndex(p=>p.nombre===item.producto);
+    if(idx>=0) products[idx].stock = item.contado;
+
+    ajustesInventario.unshift({
+      fecha,
+      producto: item.producto,
+      stockAnterior: item.stockAnterior,
+      stockContado: item.contado,
+      diferencia: item.diferencia,
+      usuario: currentUser || 'admin',
+      motivo: item.motivo
+    });
+    aplicados++;
+  });
+
+  guardarDatos();
+  listaConteoFisico = [];
+  renderListaConteoFisico();
+  renderAjusteInventario();
+  renderInventario();
+  toast(`✅ Conteo finalizado — ${aplicados} producto(s) ajustado(s)`);
+}
+
+function renderAjusteInventario(){
+  renderListaConteoFisico();
+  const tbody = document.getElementById('ajuste-historial-tbody');
+  if(!tbody) return;
+  if(ajustesInventario.length===0){
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text3);font-size:12px;padding:20px 0;font-style:italic">Aún no se ha registrado ningún ajuste de inventario.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = ajustesInventario.map(a=>`
+    <tr>
+      <td style="font-size:12px;color:var(--text2)">${a.fecha}</td>
+      <td>${a.producto}</td>
+      <td>${a.stockAnterior}</td>
+      <td>${a.stockContado}</td>
+      <td style="color:${a.diferencia>0?'var(--green)':'var(--red)'};font-weight:600">${a.diferencia>0?'+':''}${a.diferencia}</td>
+      <td style="font-size:12px;color:var(--text2)">${a.usuario}</td>
+      <td style="font-size:12px;color:var(--text2)">${a.motivo}</td>
+    </tr>
+  `).join('');
+}
 // cargarDatos(); — llamado después del login
 
 let channels = [
@@ -1503,6 +1784,7 @@ function showTab(t, btn){
   if(t==='separados') renderSeparados();
   if(t==='caja') renderCaja();
   if(t==='proveedores') renderProveedores();
+  if(t==='ajuste') renderAjusteInventario();
 }
 
 // ── MÓDULO SEPARADOS ──────────────────────────────────────────
@@ -4033,6 +4315,7 @@ async function doLogin() {
     if (data.password !== pass) { showLoginError('Contraseña incorrecta'); btn.textContent='Ingresar'; btn.disabled=false; return; }
 
     currentRole = data.role;
+    currentUser = user;
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     document.getElementById('topbar-user').textContent = `👤 ${user} (${currentRole})`;
