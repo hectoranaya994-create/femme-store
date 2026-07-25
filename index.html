@@ -943,7 +943,7 @@ tr:hover td{background:rgba(255,255,255,.025)}
       <div class="form-row"><label>Precio venta ($)</label><input type="number" id="f-precio" min="0" value="0"></div>
     </div>
     <div class="modal-footer">
-      <button class="btn danger" onclick="closeModal('modal-add')">Cancelar</button>
+      <button class="btn danger" onclick="cancelarModalAdd()">Cancelar</button>
       <button class="btn primary" onclick="saveProduct()">Guardar</button>
     </div>
   </div>
@@ -1080,6 +1080,9 @@ tr:hover td{background:rgba(255,255,255,.025)}
         <input type="number" id="compra-prod-qty" min="1" value="1" style="width:64px;text-align:center" placeholder="Cant.">
         <input type="number" id="compra-prod-costo" min="0" value="0" style="width:90px" placeholder="Costo u.">
         <button class="btn sm primary" onclick="agregarItemCompra()" style="white-space:nowrap">+ Add</button>
+      </div>
+      <div style="margin-bottom:8px">
+        <button type="button" onclick="crearProductoDesdeCompra()" style="background:none;border:none;color:var(--gold);font-size:12px;cursor:pointer;padding:0;text-decoration:underline">+ ¿El producto no existe todavía? Crearlo ahora</button>
       </div>
       <div id="compra-items" style="display:flex;flex-direction:column;gap:5px;min-height:32px;margin-bottom:8px">
         <div style="color:var(--text3);font-size:12px;font-style:italic;padding:6px 0">Agrega productos a la compra</div>
@@ -1531,6 +1534,23 @@ let _bcTimerAjuste = null;
 let _productoAjusteActual = null;
 let listaConteoFisico = []; // { producto, stockAnterior, contado, diferencia, motivo }
 
+// ── Borrador automático del conteo físico (sobrevive a cierres accidentales) ──
+function guardarBorradorConteo(){
+  try { localStorage.setItem('femmestore_conteo_borrador', JSON.stringify(listaConteoFisico)); } catch(e){}
+}
+function restaurarBorradorConteo(){
+  try {
+    const raw = localStorage.getItem('femmestore_conteo_borrador');
+    if(raw){
+      const datos = JSON.parse(raw);
+      if(Array.isArray(datos) && datos.length>0) listaConteoFisico = datos;
+    }
+  } catch(e){}
+}
+function limpiarBorradorConteo(){
+  localStorage.removeItem('femmestore_conteo_borrador');
+}
+
 function buscarProductoAjuste(){
   clearTimeout(_bcTimerAjuste);
   _bcTimerAjuste = setTimeout(_ejecutarBusquedaAjuste, 100);
@@ -1625,6 +1645,7 @@ function agregarProductoALaLista(){
   if(idxExistente>=0) listaConteoFisico[idxExistente] = item;
   else listaConteoFisico.push(item);
 
+  guardarBorradorConteo();
   toast(`✓ ${nombre} agregado al conteo (${contado} uds)`);
   cancelarAjusteProducto();
   renderListaConteoFisico();
@@ -1632,6 +1653,7 @@ function agregarProductoALaLista(){
 
 function quitarDeListaConteo(nombre){
   listaConteoFisico = listaConteoFisico.filter(x=>x.producto!==nombre);
+  guardarBorradorConteo();
   renderListaConteoFisico();
 }
 
@@ -1639,6 +1661,7 @@ function vaciarListaConteo(){
   if(listaConteoFisico.length===0) return;
   if(!confirm('¿Vaciar toda la lista de conteo? No se aplicará ningún ajuste.')) return;
   listaConteoFisico = [];
+  limpiarBorradorConteo();
   renderListaConteoFisico();
 }
 
@@ -1705,6 +1728,7 @@ function finalizarConteoFisico(){
 
   guardarDatos();
   listaConteoFisico = [];
+  limpiarBorradorConteo();
   renderListaConteoFisico();
   renderAjusteInventario();
   renderInventario();
@@ -1712,6 +1736,10 @@ function finalizarConteoFisico(){
 }
 
 function renderAjusteInventario(){
+  if(listaConteoFisico.length===0){
+    restaurarBorradorConteo();
+    if(listaConteoFisico.length>0) toast('📋 Se recuperó un conteo que quedó a medias — sigue donde ibas');
+  }
   renderListaConteoFisico();
   const tbody = document.getElementById('ajuste-historial-tbody');
   if(!tbody) return;
@@ -2556,6 +2584,15 @@ function openModal(mode, idx){
 
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
+function cancelarModalAdd(){
+  closeModal('modal-add');
+  // Si se canceló mientras se creaba un producto desde una compra en curso, volver a la compra sin perderla
+  if(window._pendingCompra){
+    window._pendingCompra = null;
+    document.getElementById('modal-compra').classList.add('open');
+  }
+}
+
 function saveProduct(){
   const p = {
     id: (()=>{
@@ -2583,6 +2620,13 @@ function saveProduct(){
   renderInventario();
   renderDashboard();
   actualizarBadge();
+
+  // Si venía desde el flujo de "Registrar compra", volver a la compra con el producto ya seleccionado
+  if(window._pendingCompra){
+    window._pendingCompra = null;
+    const nombreCreado = p.nombre;
+    setTimeout(()=>reabrirCompraTrasCrearProducto(nombreCreado), 200);
+  }
 
   // Si venía desde una venta pendiente, volver al modal de ventas con el código
   if(window._pendingBarcodeVenta){
@@ -3960,6 +4004,24 @@ function liqRegistrarVenta(){
 
 let _compraItems = [];
 
+// ── Borrador automático de la compra en curso ──
+function guardarBorradorCompra(){
+  try {
+    localStorage.setItem('femmestore_compra_borrador', JSON.stringify({
+      items: _compraItems,
+      prov: document.getElementById('compra-prov')?.value || '',
+      fecha: document.getElementById('compra-fecha')?.value || '',
+      medio: document.getElementById('compra-medio')?.value || '',
+      estado: document.getElementById('compra-estado')?.value || '',
+      factura: document.getElementById('compra-factura')?.value || '',
+      notas: document.getElementById('compra-notas')?.value || ''
+    }));
+  } catch(e){}
+}
+function limpiarBorradorCompra(){
+  localStorage.removeItem('femmestore_compra_borrador');
+}
+
 function showInvTab(tab, btn){
   document.querySelectorAll('.inv-subtab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
@@ -3980,13 +4042,57 @@ function openCompraModal(){
   const sp = document.getElementById('compra-prov');
   sp.innerHTML = '<option value="">— Seleccionar —</option>' +
     proveedores.map(p=>`<option value="${p.nombre}">${p.id} · ${p.nombre}</option>`).join('');
-  const sprod = document.getElementById('compra-prod-sel');
-  sprod.innerHTML = '<option value="">— Seleccionar producto —</option>' +
-    products.map((p,i)=>`<option value="${i}">${p.id||''} ${p.nombre} (stock: ${p.stock})</option>`).join('');
+  actualizarSelectProductosCompra();
   document.getElementById('compra-prod-qty').value = '1';
   document.getElementById('compra-prod-costo').value = '0';
+
+  // ¿Quedó una compra a medias de un cierre inesperado?
+  try {
+    const raw = localStorage.getItem('femmestore_compra_borrador');
+    if(raw){
+      const d = JSON.parse(raw);
+      if(d.items && d.items.length>0 && confirm(`Encontré una compra que quedó a medias (${d.items.length} producto(s)). ¿Quieres recuperarla?`)){
+        _compraItems = d.items;
+        if(d.prov) sp.value = d.prov;
+        if(d.fecha) document.getElementById('compra-fecha').value = d.fecha;
+        if(d.medio) document.getElementById('compra-medio').value = d.medio;
+        if(d.estado) document.getElementById('compra-estado').value = d.estado;
+        if(d.factura) document.getElementById('compra-factura').value = d.factura;
+        if(d.notas) document.getElementById('compra-notas').value = d.notas;
+      } else {
+        limpiarBorradorCompra();
+      }
+    }
+  } catch(e){}
+
   renderCompraItems();
   document.getElementById('modal-compra').classList.add('open');
+}
+
+function actualizarSelectProductosCompra(){
+  const sprod = document.getElementById('compra-prod-sel');
+  const valorPrevio = sprod.value;
+  sprod.innerHTML = '<option value="">— Seleccionar producto —</option>' +
+    products.map((p,i)=>`<option value="${i}">${p.id||''} ${p.nombre} (stock: ${p.stock})</option>`).join('');
+  if(valorPrevio) sprod.value = valorPrevio;
+}
+
+// Crear un producto nuevo sin salir del flujo de "Registrar compra".
+// Cierra temporalmente el modal de compra (sin perder los items ya agregados),
+// abre el modal estándar de crear producto, y al guardar vuelve automáticamente
+// a la compra con el producto nuevo ya seleccionado.
+function crearProductoDesdeCompra(){
+  window._pendingCompra = true;
+  closeModal('modal-compra');
+  openModal('add');
+}
+
+function reabrirCompraTrasCrearProducto(nombreProducto){
+  actualizarSelectProductosCompra();
+  const idx = products.findIndex(p=>p.nombre===nombreProducto);
+  if(idx>=0) document.getElementById('compra-prod-sel').value = idx;
+  document.getElementById('modal-compra').classList.add('open');
+  toast('✓ Producto creado — ya puedes agregarlo a la compra');
 }
 
 function agregarItemCompra(){
@@ -4001,11 +4107,13 @@ function agregarItemCompra(){
   document.getElementById('compra-prod-sel').value='';
   document.getElementById('compra-prod-qty').value='1';
   document.getElementById('compra-prod-costo').value='0';
+  guardarBorradorCompra();
   renderCompraItems();
 }
 
 function quitarItemCompra(i){
   _compraItems.splice(i,1);
+  guardarBorradorCompra();
   renderCompraItems();
 }
 
@@ -4059,6 +4167,7 @@ function guardarCompra(){
   }
 
   guardarDatos();
+  limpiarBorradorCompra();
   closeModal('modal-compra');
   renderCompras();
   renderCxP();
