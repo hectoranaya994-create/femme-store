@@ -726,6 +726,9 @@ tr:hover td{background:rgba(255,255,255,.025)}
       <input type="text" id="adj-barcode" placeholder="📷 Escanea el código de barras o escribe el nombre del producto..." oninput="buscarProductoAjuste()" autocomplete="off" style="font-size:13px;padding:9px 12px">
     </div>
     <div id="adj-suggest" style="display:none;position:relative;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);margin-top:4px;max-height:260px;overflow-y:auto;z-index:5"></div>
+    <div style="margin-top:8px">
+      <button type="button" onclick="crearProductoDesdeAjuste()" style="background:none;border:none;color:var(--gold);font-size:12px;cursor:pointer;padding:0;text-decoration:underline">+ ¿El producto no existe todavía? Crearlo ahora</button>
+    </div>
   </div>
 
   <div class="card" id="adj-producto-card" style="display:none;margin-bottom:20px">
@@ -770,10 +773,10 @@ tr:hover td{background:rgba(255,255,255,.025)}
     </div>
     <table>
       <thead><tr>
-        <th>Producto</th><th>Stock sistema</th><th>Contado</th><th>Diferencia</th><th>Motivo</th><th></th>
+        <th>Ref.</th><th>Producto</th><th>Stock sistema</th><th>Contado</th><th>Diferencia</th><th>Motivo</th><th></th>
       </tr></thead>
       <tbody id="adj-lista-conteo-tbody">
-        <tr><td colspan="6" style="text-align:center;color:var(--text3);font-size:12px;padding:20px 0;font-style:italic">Busca productos arriba y agrégalos a la lista para empezar el conteo.</td></tr>
+        <tr><td colspan="7" style="text-align:center;color:var(--text3);font-size:12px;padding:20px 0;font-style:italic">Busca productos arriba y agrégalos a la lista para empezar el conteo.</td></tr>
       </tbody>
     </table>
   </div>
@@ -782,7 +785,7 @@ tr:hover td{background:rgba(255,255,255,.025)}
     <div style="padding:14px 16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600">Historial de ajustes aplicados</div>
     <table>
       <thead><tr>
-        <th>Fecha</th><th>Producto</th><th>Stock anterior</th><th>Contado</th><th>Diferencia</th><th>Usuario</th><th>Motivo</th>
+        <th>Fecha</th><th>Ref.</th><th>Producto</th><th>Stock anterior</th><th>Contado</th><th>Diferencia</th><th>Usuario</th><th>Motivo</th>
       </tr></thead>
       <tbody id="ajuste-historial-tbody"></tbody>
     </table>
@@ -1573,7 +1576,8 @@ function _ejecutarBusquedaAjuste(){
 
   if(matches.length===0){
     suggest.style.display='block';
-    suggest.innerHTML = `<div style="padding:10px 12px;font-size:13px;color:var(--text3);font-style:italic">Sin coincidencias para "${texto}"</div>`;
+    suggest.innerHTML = `<div style="padding:10px 12px;font-size:13px;color:var(--text3);font-style:italic">Sin coincidencias para "${texto}"</div>
+      <div onclick="crearProductoDesdeAjuste()" style="padding:10px 12px;font-size:13px;color:var(--gold);cursor:pointer;border-top:1px solid var(--border)" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='transparent'">+ Crear "${texto}" como producto nuevo</div>`;
     return;
   }
 
@@ -1582,7 +1586,7 @@ function _ejecutarBusquedaAjuste(){
     <div onclick="_seleccionarProductoAjuste('${p.nombre.replace(/'/g,"\\'")}')"
       style="padding:10px 12px;font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)"
       onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='transparent'">
-      <span>${p.nombre}</span>
+      <span><span style="color:var(--gold);font-weight:600;margin-right:6px">${p.id||'—'}</span>${p.nombre}</span>
       <span style="color:var(--text3);font-size:11px">Stock: ${p.stock}</span>
     </div>
   `).join('');
@@ -1596,7 +1600,7 @@ function _seleccionarProductoAjuste(nombre){
   document.getElementById('adj-barcode').value = '';
   document.getElementById('adj-suggest').style.display = 'none';
   document.getElementById('adj-producto-card').style.display = 'block';
-  document.getElementById('adj-producto-nombre').textContent = p.nombre;
+  document.getElementById('adj-producto-nombre').textContent = (p.id ? p.id+' · ' : '') + p.nombre;
   document.getElementById('adj-producto-barcode').textContent = p.barcode ? ('Código: '+p.barcode) : '';
   document.getElementById('adj-stock-sistema').textContent = p.stock;
   document.getElementById('adj-cantidad-contada').value = '';
@@ -1611,6 +1615,21 @@ function cancelarAjusteProducto(){
   document.getElementById('adj-producto-card').style.display = 'none';
   document.getElementById('adj-barcode').value = '';
   document.getElementById('adj-barcode').focus();
+}
+
+// Crear un producto nuevo sin salir del conteo físico. Pre-llena lo que ya
+// se había escrito en el buscador (nombre o código de barras), y al guardar
+// deja el producto recién creado listo para escribir la cantidad contada.
+function crearProductoDesdeAjuste(){
+  const texto = document.getElementById('adj-barcode').value.trim();
+  window._pendingAjuste = true;
+  document.getElementById('adj-suggest').style.display = 'none';
+  openModal('add');
+  if(texto){
+    // Si parece un código de barras (solo números, 6+ dígitos) va en barcode; si no, en nombre
+    if(/^\d{6,}$/.test(texto)) document.getElementById('f-barcode').value = texto;
+    else document.getElementById('f-nombre').value = texto;
+  }
 }
 
 function calcularDiferenciaAjuste(){
@@ -1637,6 +1656,7 @@ function agregarProductoALaLista(){
   const idxExistente = listaConteoFisico.findIndex(x=>x.producto===nombre);
   const item = {
     producto: nombre,
+    ref: _productoAjusteActual.id || '—',
     stockAnterior: _productoAjusteActual.stock,
     contado,
     diferencia: contado - _productoAjusteActual.stock,
@@ -1672,7 +1692,7 @@ function renderListaConteoFisico(){
   const btnVaciar = document.getElementById('adj-btn-vaciar');
 
   if(listaConteoFisico.length===0){
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text3);font-size:12px;padding:20px 0;font-style:italic">Busca productos arriba y agrégalos a la lista para empezar el conteo.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text3);font-size:12px;padding:20px 0;font-style:italic">Busca productos arriba y agrégalos a la lista para empezar el conteo.</td></tr>`;
     resumen.textContent = 'Ningún producto agregado todavía';
     btnFinalizar.style.display = 'none';
     btnVaciar.style.display = 'none';
@@ -1686,6 +1706,7 @@ function renderListaConteoFisico(){
 
   tbody.innerHTML = listaConteoFisico.map(x=>`
     <tr>
+      <td style="color:var(--gold);font-weight:600">${x.ref||'—'}</td>
       <td>${x.producto}</td>
       <td>${x.stockAnterior}</td>
       <td>${x.contado}</td>
@@ -1717,6 +1738,7 @@ function finalizarConteoFisico(){
     ajustesInventario.unshift({
       fecha,
       producto: item.producto,
+      ref: item.ref || '—',
       stockAnterior: item.stockAnterior,
       stockContado: item.contado,
       diferencia: item.diferencia,
@@ -1750,6 +1772,7 @@ function renderAjusteInventario(){
   tbody.innerHTML = ajustesInventario.map(a=>`
     <tr>
       <td style="font-size:12px;color:var(--text2)">${a.fecha}</td>
+      <td style="color:var(--gold);font-weight:600">${a.ref||'—'}</td>
       <td>${a.producto}</td>
       <td>${a.stockAnterior}</td>
       <td>${a.stockContado}</td>
@@ -2586,6 +2609,7 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
 function cancelarModalAdd(){
   closeModal('modal-add');
+  window._pendingAjuste = null;
   // Si se canceló mientras se creaba un producto desde una compra en curso, volver a la compra sin perderla
   if(window._pendingCompra){
     window._pendingCompra = null;
@@ -2620,6 +2644,13 @@ function saveProduct(){
   renderInventario();
   renderDashboard();
   actualizarBadge();
+
+  // Si venía desde el conteo físico (Ajuste Inventario), dejar el producto listo para contar
+  if(window._pendingAjuste){
+    window._pendingAjuste = null;
+    const nombreCreado = p.nombre;
+    setTimeout(()=>_seleccionarProductoAjuste(nombreCreado), 200);
+  }
 
   // Si venía desde el flujo de "Registrar compra", volver a la compra con el producto ya seleccionado
   if(window._pendingCompra){
