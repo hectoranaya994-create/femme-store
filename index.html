@@ -4424,6 +4424,21 @@ async function initFirebase() {
   fbApp = initializeApp(FB_CONFIG);
   fbDb = getDatabase(fbApp);
 
+  // ── Verificación de licencia/pago — control exclusivo del proveedor (InventaPro) ──
+  // Se controla directo desde Firebase: nodo 'licencia/activa' (true/false).
+  // Si no existe el nodo, se asume activa (no rompe instalaciones existentes).
+  try {
+    const licSnap = await get(ref(fbDb, 'licencia'));
+    const lic = licSnap.exists() ? licSnap.val() : { activa: true };
+    if (lic.activa === false) {
+      mostrarBloqueoLicencia(lic.mensaje);
+      return; // Detiene el arranque — no se crean usuarios ni se muestra el login
+    }
+  } catch (e) {
+    console.error('Error verificando licencia:', e);
+    // Si falla la verificación por conexión, se deja continuar normalmente (no castigar por error de red)
+  }
+
   // Crear usuarios por defecto si no existen
   const usersRef = ref(fbDb, 'usuarios');
   const snap = await get(usersRef);
@@ -4432,6 +4447,21 @@ async function initFirebase() {
     await set(ref(fbDb, 'usuarios/cajero'), { password: 'cajero123', role: 'cajero' });
   }
 }
+
+function mostrarBloqueoLicencia(mensajePersonalizado) {
+  const pantalla = document.getElementById('login-screen');
+  const mensaje = mensajePersonalizado || 'Este sistema está temporalmente suspendido. Contacta a tu proveedor (InventaPro) para reactivarlo.';
+  pantalla.innerHTML = `
+    <div style="background:linear-gradient(135deg,#161616,#1c1c1c);border:1px solid #5a2020;border-radius:16px;padding:40px;width:380px;box-shadow:0 24px 60px rgba(0,0,0,.6);text-align:center">
+      <div style="width:56px;height:56px;background:linear-gradient(135deg,#7a1f1f,#a83232);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+        <span style="font-size:26px">🔒</span>
+      </div>
+      <div style="font-size:18px;font-weight:800;color:#f87171;margin-bottom:12px">Acceso suspendido</div>
+      <div style="font-size:13px;color:#ccc;line-height:1.6">${mensaje}</div>
+    </div>
+  `;
+}
+
 
 async function doLogin() {
   const user = document.getElementById('login-user').value.trim().toLowerCase();
