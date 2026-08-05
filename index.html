@@ -864,9 +864,10 @@ tr:hover td{background:rgba(255,255,255,.025)}
     <div class="form-row">
       <label>Prendas separadas</label>
       <div style="display:flex;gap:6px;margin-bottom:6px">
-        <select id="sep-prod-sel" style="flex:1;font-size:13px">
-          <option value="">— Selecciona prenda —</option>
-        </select>
+        <div style="position:relative;flex:1">
+          <input type="text" id="sep-prod-search" placeholder="🔍 Buscar prenda por nombre o código..." oninput="sepBuscarPrenda()" autocomplete="off">
+          <div id="sep-prod-suggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);margin-top:4px;max-height:220px;overflow-y:auto;z-index:20;box-shadow:var(--shadow-sm)"></div>
+        </div>
         <input type="number" id="sep-prod-qty" min="1" value="1" style="width:60px;font-size:13px;text-align:center">
         <button class="btn sm primary" onclick="sepAgregarPrenda()">+</button>
       </div>
@@ -1953,9 +1954,12 @@ function renderSeparados(){
 }
 
 // ── Formulario nueva separación ──
+let sepProductoSeleccionado = null;
+
 function openSepModal(){
   sepPrendasTemp = [];
   sepEditIdx = null;
+  sepProductoSeleccionado = null;
   document.getElementById('sep-clienta').value = '';
   document.getElementById('sep-tel').value = '';
   document.getElementById('sep-total').value = 0;
@@ -1964,28 +1968,71 @@ function openSepModal(){
   // Fecha límite: 2 semanas por defecto
   const d = new Date(); d.setDate(d.getDate()+14);
   document.getElementById('sep-fecha-limite').value = d.toLocaleDateString('en-CA');
-  // Poblar select de prendas
-  const sel = document.getElementById('sep-prod-sel');
-  sel.innerHTML = '<option value="">— Selecciona prenda —</option>' +
-    products.filter(p=>p.stock>0).map(p=>
-      `<option value="${p.nombre}" data-precio="${p.precio}">${p.nombre} · ${fmt(p.precio)}</option>`
-    ).join('');
+  document.getElementById('sep-prod-search').value = '';
+  document.getElementById('sep-prod-qty').value = 1;
+  document.getElementById('sep-prod-suggest').style.display = 'none';
   sepRenderPrendas();
   document.getElementById('modal-sep').classList.add('open');
   setTimeout(()=>document.getElementById('sep-clienta').focus(), 100);
 }
 
+let _sepBuscarTimer = null;
+function sepBuscarPrenda(){
+  clearTimeout(_sepBuscarTimer);
+  _sepBuscarTimer = setTimeout(_sepEjecutarBusqueda, 100);
+}
+
+function _sepEjecutarBusqueda(){
+  const texto = document.getElementById('sep-prod-search').value.trim();
+  const suggest = document.getElementById('sep-prod-suggest');
+  sepProductoSeleccionado = null;
+
+  if(!texto){ suggest.style.display='none'; return; }
+
+  const textoLow = texto.toLowerCase();
+  const matches = products.filter(p=>p.stock>0 && (
+    p.nombre.toLowerCase().includes(textoLow) ||
+    (p.id||'').toLowerCase().includes(textoLow) ||
+    (p.barcode||'').includes(texto)
+  )).slice(0,8);
+
+  if(matches.length===0){
+    suggest.style.display='block';
+    suggest.innerHTML = `<div style="padding:10px 12px;font-size:12.5px;color:var(--text3);font-style:italic">Sin resultados para "${texto}"</div>`;
+    return;
+  }
+
+  suggest.style.display='block';
+  suggest.innerHTML = matches.map(p=>`
+    <div onclick="sepSeleccionarPrenda('${p.nombre.replace(/'/g,"\\'")}')"
+      style="padding:9px 12px;font-size:12.5px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='transparent'">
+      <span>${p.id?`<span style="color:var(--gold);font-weight:600;margin-right:6px">${p.id}</span>`:''}${p.nombre}</span>
+      <span style="color:var(--text3)">${fmt(p.precio)} · stock ${p.stock}</span>
+    </div>
+  `).join('');
+}
+
+function sepSeleccionarPrenda(nombre){
+  const p = products.find(x=>x.nombre===nombre);
+  if(!p) return;
+  sepProductoSeleccionado = p;
+  document.getElementById('sep-prod-search').value = p.nombre;
+  document.getElementById('sep-prod-suggest').style.display = 'none';
+  setTimeout(()=>document.getElementById('sep-prod-qty').focus(), 50);
+}
+
 function sepAgregarPrenda(){
-  const sel = document.getElementById('sep-prod-sel');
-  const opt = sel.options[sel.selectedIndex];
   const qty = parseInt(document.getElementById('sep-prod-qty').value)||1;
-  if(!sel.value){ toast('Selecciona una prenda'); return; }
-  const precio = parseFloat(opt.dataset.precio)||0;
-  const exist  = sepPrendasTemp.findIndex(p=>p.nombre===sel.value);
+  if(!sepProductoSeleccionado){ toast('Busca y selecciona una prenda de la lista'); return; }
+  const nombre = sepProductoSeleccionado.nombre;
+  const precio = sepProductoSeleccionado.precio||0;
+  const exist  = sepPrendasTemp.findIndex(p=>p.nombre===nombre);
   if(exist>=0) sepPrendasTemp[exist].qty += qty;
-  else sepPrendasTemp.push({nombre:sel.value, precio, qty});
-  sel.value='';
-  document.getElementById('sep-prod-qty').value=1;
+  else sepPrendasTemp.push({nombre, precio, qty});
+  document.getElementById('sep-prod-search').value = '';
+  document.getElementById('sep-prod-qty').value = 1;
+  sepProductoSeleccionado = null;
   sepRenderPrendas();
   // Auto-calcular total sugerido
   const total = sepPrendasTemp.reduce((a,p)=>a+p.precio*p.qty,0);
