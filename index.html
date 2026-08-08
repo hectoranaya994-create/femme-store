@@ -1078,12 +1078,13 @@ tr:hover td{background:rgba(255,255,255,.025)}
     <div class="form-row">
       <label>Productos comprados</label>
       <div style="display:flex;gap:6px;margin-bottom:8px">
-        <select id="compra-prod-sel" style="flex:1">
-          <option value="">— Seleccionar producto —</option>
-        </select>
+        <div style="position:relative;flex:1">
+          <input type="text" id="compra-prod-search" placeholder="🔍 Buscar por nombre, código o referencia..." oninput="compraBuscarProducto()" autocomplete="off">
+          <div id="compra-prod-suggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);margin-top:4px;max-height:220px;overflow-y:auto;z-index:20;box-shadow:var(--shadow-sm)"></div>
+        </div>
         <input type="number" id="compra-prod-qty" min="1" value="1" style="width:64px;text-align:center" placeholder="Cant.">
         <input type="number" id="compra-prod-costo" min="0" value="0" style="width:90px" placeholder="Costo u.">
-        <button class="btn sm primary" onclick="agregarItemCompra()" style="white-space:nowrap">+ Add</button>
+        <button class="btn sm primary" id="compra-add-btn" onclick="agregarItemCompra()" style="white-space:nowrap;opacity:.4;cursor:not-allowed" disabled>+ Add</button>
       </div>
       <div style="margin-bottom:8px">
         <button type="button" onclick="crearProductoDesdeCompra()" style="background:none;border:none;color:var(--gold);font-size:12px;cursor:pointer;padding:0;text-decoration:underline">+ ¿El producto no existe todavía? Crearlo ahora</button>
@@ -4152,7 +4153,7 @@ function openCompraModal(){
   const sp = document.getElementById('compra-prov');
   sp.innerHTML = '<option value="">— Seleccionar —</option>' +
     proveedores.map(p=>`<option value="${p.nombre}">${p.id} · ${p.nombre}</option>`).join('');
-  actualizarSelectProductosCompra();
+  resetearBusquedaProductoCompra();
   document.getElementById('compra-prod-qty').value = '1';
   document.getElementById('compra-prod-costo').value = '0';
 
@@ -4179,12 +4180,77 @@ function openCompraModal(){
   document.getElementById('modal-compra').classList.add('open');
 }
 
-function actualizarSelectProductosCompra(){
-  const sprod = document.getElementById('compra-prod-sel');
-  const valorPrevio = sprod.value;
-  sprod.innerHTML = '<option value="">— Seleccionar producto —</option>' +
-    products.map((p,i)=>`<option value="${i}">${p.id||''} ${p.nombre} (stock: ${p.stock})</option>`).join('');
-  if(valorPrevio) sprod.value = valorPrevio;
+let compraProductoSeleccionado = null;
+
+function compraActualizarBotonAgregar(){
+  const btn = document.getElementById('compra-add-btn');
+  if(!btn) return;
+  if(compraProductoSeleccionado){
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '.4';
+    btn.style.cursor = 'not-allowed';
+  }
+}
+
+function resetearBusquedaProductoCompra(){
+  const input = document.getElementById('compra-prod-search');
+  const suggest = document.getElementById('compra-prod-suggest');
+  if(input) input.value = '';
+  if(suggest) suggest.style.display = 'none';
+  compraProductoSeleccionado = null;
+  compraActualizarBotonAgregar();
+}
+
+let _compraBuscarTimer = null;
+function compraBuscarProducto(){
+  clearTimeout(_compraBuscarTimer);
+  _compraBuscarTimer = setTimeout(_compraEjecutarBusqueda, 100);
+}
+
+function _compraEjecutarBusqueda(){
+  const texto = document.getElementById('compra-prod-search').value.trim();
+  const suggest = document.getElementById('compra-prod-suggest');
+  compraProductoSeleccionado = null;
+  compraActualizarBotonAgregar();
+
+  if(!texto){ suggest.style.display='none'; return; }
+
+  const textoLow = texto.toLowerCase();
+  const matches = products.filter(p =>
+    p.nombre.toLowerCase().includes(textoLow) ||
+    (p.id||'').toLowerCase().includes(textoLow) ||
+    (p.barcode||'').toLowerCase().includes(textoLow)
+  ).slice(0,8);
+
+  if(matches.length===0){
+    suggest.style.display='block';
+    suggest.innerHTML = `<div style="padding:10px 12px;font-size:12.5px;color:var(--text3);font-style:italic">Sin resultados para "${texto}"</div>`;
+    return;
+  }
+
+  suggest.style.display='block';
+  suggest.innerHTML = matches.map(p=>`
+    <div onclick="compraSeleccionarProducto('${p.nombre.replace(/'/g,"\\'")}')"
+      style="padding:9px 12px;font-size:12.5px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='transparent'">
+      <span>${p.id?`<span style="color:var(--gold);font-weight:600;margin-right:6px">${p.id}</span>`:''}${p.nombre}</span>
+      <span style="color:var(--text3)">stock ${p.stock}</span>
+    </div>
+  `).join('');
+}
+
+function compraSeleccionarProducto(nombre){
+  const p = products.find(x=>x.nombre===nombre);
+  if(!p) return;
+  compraProductoSeleccionado = p;
+  document.getElementById('compra-prod-search').value = p.nombre;
+  document.getElementById('compra-prod-suggest').style.display = 'none';
+  compraActualizarBotonAgregar();
+  setTimeout(()=>document.getElementById('compra-prod-qty').focus(), 50);
 }
 
 // Crear un producto nuevo sin salir del flujo de "Registrar compra".
@@ -4198,23 +4264,22 @@ function crearProductoDesdeCompra(){
 }
 
 function reabrirCompraTrasCrearProducto(nombreProducto){
-  actualizarSelectProductosCompra();
-  const idx = products.findIndex(p=>p.nombre===nombreProducto);
-  if(idx>=0) document.getElementById('compra-prod-sel').value = idx;
+  resetearBusquedaProductoCompra();
+  const p = products.find(x=>x.nombre===nombreProducto);
+  if(p) compraSeleccionarProducto(p.nombre);
   document.getElementById('modal-compra').classList.add('open');
   toast('✓ Producto creado — ya puedes agregarlo a la compra');
 }
 
 function agregarItemCompra(){
-  const idx   = document.getElementById('compra-prod-sel').value;
   const qty   = parseInt(document.getElementById('compra-prod-qty').value)||1;
   const costo = parseFloat(document.getElementById('compra-prod-costo').value)||0;
-  if(idx==='') { toast('Selecciona un producto'); return; }
-  const prod = products[parseInt(idx)];
+  if(!compraProductoSeleccionado) { toast('Busca y selecciona un producto de la lista'); return; }
+  const prod = compraProductoSeleccionado;
   const exist = _compraItems.findIndex(i=>i.nombre===prod.nombre);
   if(exist>=0){ _compraItems[exist].qty+=qty; _compraItems[exist].costo=costo; }
-  else _compraItems.push({nombre:prod.nombre, idx:parseInt(idx), qty, costo});
-  document.getElementById('compra-prod-sel').value='';
+  else _compraItems.push({nombre:prod.nombre, qty, costo});
+  resetearBusquedaProductoCompra();
   document.getElementById('compra-prod-qty').value='1';
   document.getElementById('compra-prod-costo').value='0';
   guardarBorradorCompra();
@@ -4259,7 +4324,8 @@ function guardarCompra(){
 
   // Siempre sumar stock
   _compraItems.forEach(it=>{
-    if(products[it.idx]) products[it.idx].stock += it.qty;
+    const pi = products.findIndex(p=>p.nombre===it.nombre);
+    if(pi>=0) products[pi].stock += it.qty;
   });
 
   // Solo registrar en caja si está pagado
