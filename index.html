@@ -869,7 +869,7 @@ tr:hover td{background:rgba(255,255,255,.025)}
           <div id="sep-prod-suggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);margin-top:4px;max-height:220px;overflow-y:auto;z-index:20;box-shadow:var(--shadow-sm)"></div>
         </div>
         <input type="number" id="sep-prod-qty" min="1" value="1" style="width:60px;font-size:13px;text-align:center">
-        <button class="btn sm primary" onclick="sepAgregarPrenda()">+</button>
+        <button class="btn sm primary" id="sep-add-btn" onclick="sepAgregarPrenda()" style="opacity:.4;cursor:not-allowed" disabled>+</button>
       </div>
       <div id="sep-prendas-list" style="display:flex;flex-direction:column;gap:4px;min-height:28px"></div>
     </div>
@@ -1956,6 +1956,20 @@ function renderSeparados(){
 // ── Formulario nueva separación ──
 let sepProductoSeleccionado = null;
 
+function sepActualizarBotonAgregar(){
+  const btn = document.getElementById('sep-add-btn');
+  if(!btn) return;
+  if(sepProductoSeleccionado){
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '.4';
+    btn.style.cursor = 'not-allowed';
+  }
+}
+
 function openSepModal(){
   sepPrendasTemp = [];
   sepEditIdx = null;
@@ -1971,6 +1985,7 @@ function openSepModal(){
   document.getElementById('sep-prod-search').value = '';
   document.getElementById('sep-prod-qty').value = 1;
   document.getElementById('sep-prod-suggest').style.display = 'none';
+  sepActualizarBotonAgregar();
   sepRenderPrendas();
   document.getElementById('modal-sep').classList.add('open');
   setTimeout(()=>document.getElementById('sep-clienta').focus(), 100);
@@ -1986,6 +2001,7 @@ function _sepEjecutarBusqueda(){
   const texto = document.getElementById('sep-prod-search').value.trim();
   const suggest = document.getElementById('sep-prod-suggest');
   sepProductoSeleccionado = null;
+  sepActualizarBotonAgregar();
 
   if(!texto){ suggest.style.display='none'; return; }
 
@@ -2019,6 +2035,7 @@ function sepSeleccionarPrenda(nombre){
   sepProductoSeleccionado = p;
   document.getElementById('sep-prod-search').value = p.nombre;
   document.getElementById('sep-prod-suggest').style.display = 'none';
+  sepActualizarBotonAgregar();
   setTimeout(()=>document.getElementById('sep-prod-qty').focus(), 50);
 }
 
@@ -2033,6 +2050,7 @@ function sepAgregarPrenda(){
   document.getElementById('sep-prod-search').value = '';
   document.getElementById('sep-prod-qty').value = 1;
   sepProductoSeleccionado = null;
+  sepActualizarBotonAgregar();
   sepRenderPrendas();
   // Auto-calcular total sugerido
   const total = sepPrendasTemp.reduce((a,p)=>a+p.precio*p.qty,0);
@@ -2049,7 +2067,7 @@ function sepRenderPrendas(){
         <span style="color:#3B6D11;font-weight:600">${fmt(p.precio*p.qty)}</span>
         <button onclick="sepPrendasTemp.splice(${i},1);sepRenderPrendas()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px">✕</button>
       </div>`).join('')
-    : '<div style="font-size:12px;color:var(--color-text-secondary);padding:4px 0">Agrega al menos una prenda</div>';
+    : '<div style="font-size:12px;color:var(--color-text-secondary);padding:4px 0">⚠️ Aún no hay ninguna prenda agregada — escribe arriba y haz clic en una sugerencia de la lista, luego en "+"</div>';
 }
 
 function sepActualizarResumen(){
@@ -3697,14 +3715,28 @@ function onBarcodeInput(){
   const val = document.getElementById('f-barcode').value.trim();
   const badge = document.getElementById('barcode-assigned-badge');
   const hint = document.getElementById('barcode-hint');
+  const input = document.getElementById('f-barcode');
   if(val){
-    badge.style.display='inline-flex';
-    hint.textContent = '✓ Código listo · Se guardará con el producto';
-    hint.style.color = '#3B6D11';
+    const dup = products.findIndex((x,i)=>x.barcode===val && i!==editIdx);
+    if(dup>=0){
+      badge.style.display='none';
+      hint.innerHTML = `⚠️ Este código YA está asignado a "${products[dup].nombre}" — no se podrá guardar hasta que cambies el código`;
+      hint.style.color = '#dc2626';
+      hint.style.fontWeight = '700';
+      input.style.borderColor = '#dc2626';
+    } else {
+      badge.style.display='inline-flex';
+      hint.textContent = '✓ Código listo · Se guardará con el producto';
+      hint.style.color = '#3B6D11';
+      hint.style.fontWeight = '';
+      input.style.borderColor = '';
+    }
   } else {
     badge.style.display='none';
     hint.textContent = 'Opcional · También puedes pegar el código con un lector USB';
     hint.style.color = '';
+    hint.style.fontWeight = '';
+    input.style.borderColor = '';
   }
 }
 
