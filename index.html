@@ -541,7 +541,7 @@ tr:hover td{background:rgba(255,255,255,.025)}
   <!-- SUB: PRODUCTOS -->
   <div id="inv-sub-productos" class="inv-subpanel">
     <div class="search-bar">
-      <input type="text" placeholder="Buscar producto..." id="search-input" oninput="renderInventario()">
+      <input type="text" placeholder="Buscar por nombre, código de barras o referencia (PRD-XXX)..." id="search-input" oninput="renderInventario()">
       <div class="filter-select"><select onchange="renderInventario()" id="filter-cat"><option value="">Todas las categorías</option></select></div>
       <button class="btn primary" onclick="openModal('add')">+ Agregar producto</button>
     </div>
@@ -2322,7 +2322,7 @@ function renderInventario(){
   sel.innerHTML = '<option value="">Todas las categorías</option>' + cats.map(c=>`<option${c===prev?' selected':''}>${c}</option>`).join('');
 
   const filtered = products.filter(p=>
-    (!q || p.nombre.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q)) &&
+    (!q || p.nombre.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q) || (p.barcode||'').toLowerCase().includes(q) || (p.id||'').toLowerCase().includes(q)) &&
     (!cat || p.cat===cat)
   );
 
